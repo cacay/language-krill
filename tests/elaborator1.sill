@@ -1,0 +1,5 @@
+module Main where
+    main : 1
+    main : 1
+    main : 1 -o 1
+    `c <- main = close `c

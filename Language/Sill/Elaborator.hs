@@ -1,40 +1,50 @@
+{-# Language FlexibleInstances #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : Language.Sill.Elaborator
 -- Description : Convert SILL syntax to simpler intermediate form
 -- Maintainer  : coskuacay@gmail.com
 -- Stability   : experimental
+--
+-- Elaboration combines expression lines into one expression, and puts all
+-- parts of a process (type signature and all clauses) together. It also
+-- checks for duplicate type signatures, duplicate or missing function
+-- definitions.
 -----------------------------------------------------------------------------
 module Language.Sill.Elaborator
   ( elaborateFile
   , elaborateModule
   ) where
 
-import Control.Arrow (first, second)
+import Control.Arrow (first, second, (&&&))
 import Control.Monad (foldM)
 import Control.Monad.Except
 
 import Data.Function (on)
-import qualified Data.Map as Map
-import Data.List (sortOn)
+import qualified Data.Map.Strict as Map
+import Data.List (groupBy, sortOn)
 import Data.Tuple (fst, snd)
 
 import Text.PrettyPrint
 import Text.PrettyPrint.HughesPJClass (Pretty (..), prettyShow)
 
-import Language.Sill.AST as Ast
-import Language.Sill.Parser.Syntax as Syn
+import qualified Language.Sill.AST as Ast
+import qualified Language.Sill.Parser.Syntax as Syn
+import Language.Sill.Parser.Annotated
 import Language.Sill.Parser.Location
 
 import Language.Sill.Utility.Error
-import Language.Sill.Utility.List (group2)
 import Language.Sill.Utility.Pretty
 
 
 type Result = Except CompilerError
 
-type Context = Map.Map String (Ast.Type SrcSpan)
+type Context = Map.Map String (Loc (Ast.Type SrcSpan))
 
+
+{--------------------------------------------------------------------------
+  External interface
+--------------------------------------------------------------------------}
 
 -- | Elaborate a file (external interface)
 elaborateFile :: Syn.File SrcSpan -> Either CompilerError (Ast.File SrcSpan)
@@ -44,48 +54,104 @@ elaborateFile = runExcept . elabFile
 elaborateModule :: Syn.Module SrcSpan -> Either CompilerError (Ast.Module SrcSpan)
 elaborateModule = runExcept . elabModule
 
--- | Elaborate a file
+
+{--------------------------------------------------------------------------
+  Local data types
+--------------------------------------------------------------------------}
+
+{- We process type signatures and function clauses separately. We use the following
+   data types to do so.
+-}
+
+data TypeSig annot = TypeSig annot (Syn.Ident annot) (Syn.Type annot)
+
+data FunClause annot =
+  FunClause annot (Syn.Channel annot) (Syn.Ident annot) (Syn.Exp annot)
+
+
+sigId :: TypeSig SrcSpan -> String
+sigId (TypeSig _ (Syn.Ident _ id) _) = id
+
+clauseId :: FunClause SrcSpan -> String
+clauseId (FunClause _ _ (Syn.Ident _ id) _) = id
+
+
+instance Annotated TypeSig where
+  annot (TypeSig annot _ _) = annot
+
+instance Annotated FunClause where
+  annot (FunClause annot _ _ _) = annot
+
+instance Pretty (TypeSig SrcSpan) where
+  pPrint (TypeSig annot ident t) =
+    pPrint t <+> parens (text "declared at" <+> pPrint annot)
+
+instance Pretty (FunClause SrcSpan) where
+  pPrint (FunClause annot c ident exp) =
+    text "Defined at" <+> pPrint annot <> colon
+    $$ pPrint (Syn.FunClause annot c ident exp)
+
+
+{--------------------------------------------------------------------------
+  Internal functions
+--------------------------------------------------------------------------}
+
+-- | Elaborate a file (internal)
 elabFile :: Syn.File SrcSpan -> Result (Ast.File SrcSpan)
 elabFile (Syn.File annot ms) = liftM (Ast.File annot) (mapM elabModule ms)
 
--- | Elaborate a module
--- TODO: Check for declared by undefined functions
+-- | Elaborate a module (external)
 elabModule :: Syn.Module SrcSpan -> Result (Ast.Module SrcSpan)
 elabModule (Syn.Module annot name decls) = do
-  unless (null duplicates) $
-    throwError (foldl1 combineErrors $ map duplicateError duplicates)
-  decls' <- mapM (elabClause context) [c | c@(Syn.FunClause {}) <- decls]
+  decls' <- elabDeclarations decls
   return $ Ast.Module annot (elabIdent name) decls'
+
+
+elabDeclarations :: [Syn.Declaration SrcSpan] -> Result [Ast.Declaration SrcSpan]
+elabDeclarations decls = do
+  ctx <- elabTypeSigs sigs
+  let notDefined = Map.toList $ ctx Map.\\ defined
+  let notDeclared = Map.toList $ defined Map.\\ ctx
+  unless (null notDefined) $ elabErrors (map missingDefinition notDefined)
+  unless (null notDeclared) $ elabErrors (map missingSignature notDeclared)
+  elabFunClauses ctx clauses
   where
-    -- All type signatures ordered by the identifier
-    sigs :: [(String, Loc (Ast.Type SrcSpan))]
-    sigs = sortOn fst [(id, makeLoc annot (elabType t))
-      | Syn.TypeSig annot (Syn.Ident _ id) t <- decls]
+    sigs = [TypeSig annot id t | Syn.TypeSig annot id t <- decls]
+    clauses = [FunClause annot c id e | Syn.FunClause annot c id e <- decls]
 
-    -- Context containing type-signatures for identifiers (requires sigs to be sorted)
-    context :: Context
-    context = Map.fromAscList $ map (second unLoc) sigs
+    -- All defined function names
+    defined = Map.fromList $ map (clauseId &&& location) clauses
 
-    -- Find duplicate signatures (requires sigs to be sorted on identifiers)
-    duplicates :: [(String, [Loc (Ast.Type SrcSpan)])]
-    duplicates = filter (\l -> length (snd l) >= 2) (group2 sigs)
+    missingDefinition :: (String, Loc (Ast.Type SrcSpan)) -> CompilerError
+    missingDefinition (id, loc) = makeError (location loc)
+      ("No clauses given for " ++ id) empty
 
-    -- 'CompileError' for a duplicate definition
-    duplicateError :: (String, [Loc (Ast.Type SrcSpan)]) -> CompilerError
-    duplicateError (ident, decls@(d : ds)) = makeError (location d)
-      ("Multiple type signatures for " ++ ident ++ ":")
-      (nest indentation $ vcat $ map pPrint decls)
+    missingSignature :: (String, SrcSpan) -> CompilerError
+    missingSignature (id, loc) = makeError (location loc)
+      ("No type signature given for " ++ id) empty
 
--- | Elaborate a function clause
-elabClause :: Context
-           -> Syn.Declaration SrcSpan
-           -> Result (Ast.Declaration SrcSpan)
-elabClause ctx (Syn.FunClause annot c ident@(Syn.Ident _ name) e) =
-  case Map.lookup name ctx of
-    Nothing -> elabError annot "Missing type signature for expression" (pPrint e)
-    Just t -> do
+-- | Elaborate type signatures while checking for duplicates
+elabTypeSigs :: [TypeSig SrcSpan] -> Result Context
+elabTypeSigs sigs | sigs <- sortOn sigId sigs = do
+  checkDuplicatesOn sigId (\id -> "Multiple type signatures given for " ++ id) sigs
+  return $ Map.fromAscList $ map elab sigs
+  where
+    elab :: TypeSig SrcSpan -> (String, Loc (Ast.Type SrcSpan))
+    elab sig@(TypeSig annot _ t) = (sigId sig, makeLoc annot $ elabType t)
+
+-- | Elaborate clauses. Attaches type signatures, and checks for
+-- duplicate definitions. The context _must_ contain type signatures for
+-- all defined functions.
+elabFunClauses :: Context -> [FunClause SrcSpan] -> Result [Ast.Declaration SrcSpan]
+elabFunClauses ctx clauses | clauses <- sortOn clauseId clauses = do
+  checkDuplicatesOn clauseId (\id -> "Multiple definitions given for " ++ id) clauses
+  mapM elab clauses
+  where
+    elab :: FunClause SrcSpan -> Result (Ast.Declaration SrcSpan)
+    elab clause@(FunClause annot c ident e) = do
+      let t = ctx Map.! (clauseId clause)
       e' <- elabExp e
-      return $ Ast.Declaration annot (elabIdent ident) (elabChannel c) t e'
+      return $ Ast.Declaration annot (elabIdent ident) (elabChannel c) (unLoc t) e'
 
 
 -- | Elaborate a type
@@ -159,6 +225,32 @@ elabBranch elab (Syn.Branch annot lab t) =
   Ast.Branch annot (elabLabel lab) (elab t)
 
 
+-- | Assert that all elements of a _sorted_ list are distinct. Uses the given
+-- function to extract the key to compare on.
+checkDuplicatesOn :: forall key e . (Eq key, Show key, Located e, Pretty e)
+                  => (e -> key)       -- ^ Extract a key to compare on
+                  -> (key -> String)  -- ^ The message to display for duplicates
+                  -> [e]              -- ^ List of inputs
+                  -> Result ()
+checkDuplicatesOn key msg es =
+    unless (null duplicates) $ elabErrors $ map duplicateError duplicates
+  where
+    -- Find duplicates (requires 'es' to be sorted on keys)
+    duplicates :: [[e]]
+    duplicates = filter (\l -> length l >= 2) $ groupBy ((==) `on` key) es
+
+    -- 'CompileError' for a duplicate definition
+    duplicateError :: [e] -> CompilerError
+    duplicateError (ds@(d : _)) = makeError (location d)
+      (msg (key d) ++ ":")
+      (nest indentation $ vcat $ map pPrint ds)
+
+
+-- | Throw an error
 elabError :: SrcSpan -> String -> Doc -> Result a
 elabError loc msg details = throwError (makeError loc msg details)
+
+-- Throw a non-empty list of errors
+elabErrors :: [CompilerError] -> Result a
+elabErrors = throwError . foldl1 combineErrors
 

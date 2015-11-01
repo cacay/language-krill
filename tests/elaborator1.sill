@@ -1,3 +1,4 @@
+{- Check multiple type signatures -}
 module Main where
     main : 1
     main : 1

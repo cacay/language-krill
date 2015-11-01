@@ -1,0 +1,6 @@
+{- Check multiple definitions -}
+module Main where
+    main : 1
+    `c <- main = close `c
+    `d <- main = close `d
+    `e <- main = close `e

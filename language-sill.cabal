@@ -1,0 +1,69 @@
+name:                language-sill
+version:             0.1.0.0
+category:            Language
+synopsis:            SILL programming language
+homepage:            https://github.com/cacay/language-sill
+
+license:             MIT
+license-file:        LICENSE
+
+author:              Josh Acay
+maintainer:          cacay@cmu.edu
+
+build-type:          Simple
+cabal-version:       >=1.10
+
+extra-source-files:  README.md
+
+library
+
+  default-language:      Haskell2010
+
+  exposed-modules:       Language.Sill.AST
+                         Language.Sill.Elaborator
+                         Language.Sill.Parser.Parser
+                         Language.Sill.Parser.Annotated
+                         Language.Sill.Parser.Location
+                         Language.Sill.Parser.Syntax
+                         Language.Sill.Parser.Token
+
+  other-modules:         Language.Sill.Parser.Lexer
+                         Language.Sill.Parser.AlexUserState
+                         Language.Sill.Utility.Error
+                         Language.Sill.Utility.List
+                         Language.Sill.Utility.Pretty
+
+  build-tools:           alex, happy
+
+  build-depends:         base >= 4.6,
+                         microlens >= 0.3.4,
+                         microlens-mtl >= 0.1.5,
+                         microlens-th >= 0.2.1,
+                         transformers >= 0.2,
+                         containers >= 0.5,
+                         array >= 0.4,
+                         bytestring == 0.10.6.*,
+                         mtl >= 2.2.1 && < 2.3,
+                         pretty == 1.1.3.*
+
+  default-extensions:    PatternGuards,
+                         ScopedTypeVariables,
+                         MultiParamTypeClasses
+
+  other-extensions:      FlexibleInstances
+
+
+executable sill
+
+  default-language:      Haskell2010
+
+  hs-source-dirs:       src
+
+  main-is:              Main.hs
+
+  build-depends:        base >= 4.6,
+                        bytestring == 0.10.6.*,
+                        language-sill
+
+
+

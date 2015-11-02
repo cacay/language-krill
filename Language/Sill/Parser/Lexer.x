@@ -32,7 +32,6 @@ module Language.Sill.Parser.Lexer
     , setSrcFile, getSrcLoc
     ) where
 
-import Control.Applicative (Applicative (..))
 import Control.Monad (ap, liftM, when)
 import Control.Monad.State (MonadState (..), gets)
 
@@ -42,7 +41,7 @@ import Data.Int (Int64)
 import Lens.Micro
 import Lens.Micro.Mtl
 import Text.PrettyPrint
-import Text.PrettyPrint.HughesPJClass (Pretty (..), prettyShow)
+import Text.PrettyPrint.HughesPJClass (Pretty (..))
 
 import Language.Sill.Parser.AlexUserState
 import Language.Sill.Parser.Location hiding (srcFile)

@@ -17,19 +17,17 @@ module Language.Sill.Elaborator
   ) where
 
 -- TODO: Check for duplicate branches in types
--- TODO: Check for duplicate branches in case statements
 
-import Control.Arrow (first, second, (&&&))
+import Control.Arrow ((&&&))
 import Control.Monad (foldM)
 import Control.Monad.Except
 
 import Data.Function (on)
 import qualified Data.Map.Strict as Map
 import Data.List (groupBy, sortOn)
-import Data.Tuple (fst, snd)
 
 import Text.PrettyPrint
-import Text.PrettyPrint.HughesPJClass (Pretty (..), prettyShow)
+import Text.PrettyPrint.HughesPJClass (Pretty (..))
 
 import qualified Language.Sill.AST as Ast
 import qualified Language.Sill.Parser.Syntax as Syn
@@ -189,6 +187,9 @@ elabExp c (Syn.Exp annot es) | r : rs <- reverse es = do
     elabLast p@(Syn.EClose {}) | otherwise = elabError (location p)
       "Cannot close non-provided channel" (pPrint p)
     elabLast (Syn.ECase annot d br) = do
+      checkDuplicatesOn Syn.branchLabel
+        (\lab -> "Overlapping cases for " ++ show lab)
+        (sortOn Syn.branchLabel br)
       br' <- mapM branch br
       if c == d
         then return $ Ast.ECaseProv annot br'

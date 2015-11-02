@@ -6,7 +6,22 @@
 -- Maintainer  : coskuacay@gmail.com
 -- Stability   : experimental
 -----------------------------------------------------------------------------
-module Language.Sill.Parser.Syntax where
+module Language.Sill.Parser.Syntax
+  ( File (..)
+  , Module (..)
+  , Declaration (..)
+  , Type (..)
+  , Exp (..)
+  , ExpLine (..)
+  , Ident (..)
+  , Channel (..)
+  , Label (..)
+  , Branch (..)
+  , branchLabel
+  , branchUnpack
+  , branchMap
+  , branchLookup
+  ) where
 
 import Data.Function (on)
 
@@ -15,7 +30,6 @@ import Text.PrettyPrint.HughesPJClass (Pretty (..), prettyShow)
 import Language.Sill.Utility.Pretty
 
 import Language.Sill.Parser.Annotated (Annotated (..))
-import Language.Sill.Parser.Location (Located(..), SrcSpan)
 
 
 data File annot = File annot [Module annot]
@@ -54,6 +68,19 @@ data Channel annot = Channel annot String
 data Label annot = Label annot String
 
 data Branch t annot = Branch annot (Label annot) (t annot)
+
+
+branchLabel :: Branch t annot -> Label annot
+branchLabel (Branch _ lab _) = lab
+
+branchUnpack :: Branch t annot -> (Label annot, t annot)
+branchUnpack (Branch _ lab t) = (lab, t)
+
+branchMap :: (t1 annot -> t2 annot) -> Branch t1 annot -> Branch t2 annot
+branchMap f (Branch annot lab t) = Branch annot lab (f t)
+
+branchLookup :: Label annot -> [Branch t annot] -> Maybe (t annot)
+branchLookup lab = lookup lab . map branchUnpack
 
 
 {--------------------------------------------------------------------------

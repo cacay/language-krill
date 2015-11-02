@@ -25,8 +25,6 @@ module Language.Sill.Parser.Location
   , makeLoc, unLoc
   ) where
 
-import Data.Function (on)
-
 import Text.PrettyPrint
 import Text.PrettyPrint.HughesPJClass (Pretty (..), prettyShow)
 

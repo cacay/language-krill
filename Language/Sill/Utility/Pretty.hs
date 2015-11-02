@@ -8,7 +8,6 @@
 module Language.Sill.Utility.Pretty where
 
 import Text.PrettyPrint
-import Text.PrettyPrint.HughesPJClass (Pretty (..), prettyShow)
 
 
 {--------------------------------------------------------------------------

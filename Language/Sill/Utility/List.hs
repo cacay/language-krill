@@ -13,7 +13,6 @@ module Language.Sill.Utility.List
 
 import Data.Function (on)
 import Data.Ord (comparing)
-import Data.Tuple (fst, snd)
 import qualified Data.List as List
 
 

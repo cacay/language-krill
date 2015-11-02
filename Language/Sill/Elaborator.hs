@@ -16,6 +16,9 @@ module Language.Sill.Elaborator
   , elaborateModule
   ) where
 
+-- TODO: Check for duplicate branches in types
+-- TODO: Check for duplicate branches in case statements
+
 import Control.Arrow (first, second, (&&&))
 import Control.Monad (foldM)
 import Control.Monad.Except
@@ -149,9 +152,9 @@ elabFunClauses ctx clauses | clauses <- sortOn clauseId clauses = do
   where
     elab :: FunClause SrcSpan -> Result (Ast.Declaration SrcSpan)
     elab clause@(FunClause annot c ident e) = do
-      let t = ctx Map.! (clauseId clause)
-      e' <- elabExp e
-      return $ Ast.Declaration annot (elabIdent ident) (elabChannel c) (unLoc t) e'
+      let t = ctx Map.! clauseId clause
+      e' <- elabExp c e
+      return $ Ast.Declaration annot (elabIdent ident) (unLoc t) e'
 
 
 -- | Elaborate a type
@@ -169,43 +172,63 @@ elabType (Syn.TUnion annot a b) = Ast.TUnion annot (elabType a) (elabType b)
 
 
 -- | Elaborate an expression. Combines multiple 'Syn.ExpLine's into one 'Ast.Exp'.
-elabExp :: Syn.Exp SrcSpan -> Result (Ast.Exp SrcSpan)
-elabExp e@(Syn.Exp annot []) =
+elabExp :: Syn.Channel SrcSpan -> Syn.Exp SrcSpan -> Result (Ast.Exp SrcSpan)
+elabExp c e@(Syn.Exp annot []) =
   elabError (location e) "Process expression cannot be empty" (pPrint e)
-elabExp (Syn.Exp annot es) | r : rs <- reverse es = do
+elabExp c (Syn.Exp annot es) | r : rs <- reverse es = do
   r' <- elabLast r
   foldM (flip elabLine) r' rs
   where
     -- Convert a terminating expression
     elabLast :: Syn.ExpLine SrcSpan -> Result (Ast.Exp SrcSpan)
-    elabLast (Syn.EFwd annot c d) =
-      return $ Ast.EFwd annot (elabChannel c) (elabChannel d)
-    elabLast (Syn.EClose annot c) = return $ Ast.EClose annot (elabChannel c)
-    elabLast (Syn.ECase annot c br) = do
+    elabLast (Syn.EFwd annot c' d) | c == c' =
+      return $ Ast.EFwdProv annot (elabChannel d)
+    elabLast p@(Syn.EFwd {}) | otherwise = elabError (location p)
+      "Cannot forward to non-provided channel" (pPrint p)
+    elabLast (Syn.EClose annot c') | c == c' = return $ Ast.ECloseProv annot
+    elabLast p@(Syn.EClose {}) | otherwise = elabError (location p)
+      "Cannot close non-provided channel" (pPrint p)
+    elabLast (Syn.ECase annot d br) = do
       br' <- mapM branch br
-      return $ Ast.ECase annot (elabChannel c) br'
+      if c == d
+        then return $ Ast.ECaseProv annot br'
+        else return $ Ast.ECase annot (elabChannel d) br'
       where
         branch :: Syn.Branch Syn.Exp SrcSpan -> Result (Ast.Branch Ast.Exp SrcSpan)
-        branch (Syn.Branch annot lab e) = do
-          e' <- elabExp e
-          return $ Ast.Branch annot (elabLabel lab) e'
-    elabLast e = elabError (location e)
+        branch (Syn.Branch annot lab p) = do
+          p' <- elabExp c p
+          return $ Ast.Branch annot (elabLabel lab) p'
+    elabLast p = elabError (location p)
       "The following cannot be the last expression of a process:"
-      (pPrint e)
+      (pPrint p)
 
     -- Convert a non-terminating expression
     elabLine :: Syn.ExpLine SrcSpan -> Ast.Exp SrcSpan -> Result (Ast.Exp SrcSpan)
-    elabLine (Syn.ECut annot c e1 t) e2 = do
-      e1' <- elabExp e1
-      return $ Ast.ECut (mergeLocated annot e2) (elabChannel c) e1' (elabType t) e2
-    elabLine (Syn.EWait annot c) e =
-      return $ Ast.EWait (mergeLocated annot e) (elabChannel c) e
-    elabLine (Syn.ESend annot c d) e =
-      return $ Ast.ESend (mergeLocated annot e) (elabChannel c) (elabChannel d) e
-    elabLine (Syn.ERecv annot c d) e =
-      return $ Ast.ERecv (mergeLocated annot e) (elabChannel c) (elabChannel d) e
-    elabLine (Syn.ESelect annot c lab) e =
-      return $ Ast.ESelect (mergeLocated annot e) (elabChannel c) (elabLabel lab) e
+    elabLine (Syn.ESend annot c' (d, p1)) p2 | c == c' = do
+      p1' <- elabExp d p1
+      return $ Ast.ESendProv (mergeLocated annot p2) p1' p2
+    elabLine (Syn.ESendChannel annot c' d) p | c == c' =
+      return $ Ast.ESendProv (mergeLocated annot p)
+        (Ast.EFwdProv (location d) (elabChannel d)) p
+    elabLine (Syn.ERecv annot d c') p | c == c' =
+      return $ Ast.ERecvProv (mergeLocated annot p) (elabChannel d) p
+    elabLine (Syn.ESelect annot c' lab) p | c == c' =
+      return $ Ast.ESelectProv (mergeLocated annot p) (elabLabel lab) p
+    elabLine (Syn.ECut annot d p1 t) p2 = do
+      p1' <- elabExp d p1
+      return $ Ast.ECut (mergeLocated annot p2) (elabChannel d) p1' (elabType t) p2
+    elabLine (Syn.EWait annot d) p =
+      return $ Ast.EWait (mergeLocated annot p) (elabChannel d) p
+    elabLine (Syn.ESend annot d (e, p1)) p2 | otherwise = do
+      p1' <- elabExp e p1
+      return $ Ast.ESend (mergeLocated annot p2) (elabChannel d) p1' p2
+    elabLine (Syn.ESendChannel annot d e) p | otherwise =
+      return $ Ast.ESend (mergeLocated annot p)
+        (elabChannel d) (Ast.EFwdProv (location e) (elabChannel e)) p
+    elabLine (Syn.ERecv annot d e) p | otherwise =
+      return $ Ast.ERecv (mergeLocated annot p) (elabChannel d) (elabChannel e) p
+    elabLine (Syn.ESelect annot d lab) p | otherwise =
+      return $ Ast.ESelect (mergeLocated annot p) (elabChannel d) (elabLabel lab) p
     elabLine e1 e2 = elabError (location e1)
       "Unexpected expressions after terminating expression:"
       (pPrint e1)

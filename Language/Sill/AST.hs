@@ -6,21 +6,37 @@
 -- Maintainer  : coskuacay@gmail.com
 -- Stability   : experimental
 -----------------------------------------------------------------------------
-module Language.Sill.AST where
+module Language.Sill.AST
+  ( File (..)
+  , Module (..)
+  , Declaration (..)
+  , Type (..)
+  , Exp (..)
+  , Ident (..)
+  , Channel (..)
+  , Label (..)
+  , Branch (..)
+  , branchLabel
+  , branchUnpack
+  , branchMap
+  , branchLookup
+  ) where
+
+import Data.Function (on)
 
 import Text.PrettyPrint
 import Text.PrettyPrint.HughesPJClass (Pretty (..), prettyShow)
-import Language.Sill.Utility.Pretty
 
 import Language.Sill.Parser.Annotated
+
+import Language.Sill.Utility.Pretty
 
 
 data File annot = File annot [Module annot]
 
 data Module annot = Module annot (Ident annot) [Declaration annot]
 
-data Declaration annot =
-  Declaration annot (Ident annot) (Channel annot) (Type annot) (Exp annot)
+data Declaration annot = Declaration annot (Ident annot) (Type annot) (Exp annot)
 
 
 data Type annot = TUnit annot
@@ -31,11 +47,15 @@ data Type annot = TUnit annot
                 | TIntersect annot (Type annot) (Type annot)
                 | TUnion annot (Type annot) (Type annot)
 
-data Exp annot = ECut annot (Channel annot) (Exp annot) (Type annot) (Exp annot)
-               | EFwd annot (Channel annot) (Channel annot)
-               | EClose annot (Channel annot)
+data Exp annot = EFwdProv annot (Channel annot)
+               | ECloseProv annot
+               | ESendProv annot (Exp annot) (Exp annot)
+               | ERecvProv annot (Channel annot) (Exp annot)
+               | ESelectProv annot (Label annot) (Exp annot)
+               | ECaseProv annot [Branch Exp annot]
+               | ECut annot (Channel annot) (Exp annot) (Type annot) (Exp annot)
                | EWait annot (Channel annot) (Exp annot)
-               | ESend annot (Channel annot) (Channel annot) (Exp annot)
+               | ESend annot (Channel annot) (Exp annot) (Exp annot)
                | ERecv annot (Channel annot) (Channel annot) (Exp annot)
                | ESelect annot (Channel annot) (Label annot) (Exp annot)
                | ECase annot (Channel annot) [Branch Exp annot]
@@ -50,6 +70,52 @@ data Label annot = Label annot String
 data Branch t annot = Branch annot (Label annot) (t annot)
 
 
+branchLabel :: Branch t annot -> Label annot
+branchLabel (Branch _ lab _) = lab
+
+branchUnpack :: Branch t annot -> (Label annot, t annot)
+branchUnpack (Branch _ lab t) = (lab, t)
+
+branchMap :: (t1 annot -> t2 annot) -> Branch t1 annot -> Branch t2 annot
+branchMap f (Branch annot lab t) = Branch annot lab (f t)
+
+branchLookup :: Label annot -> [Branch t annot] -> Maybe (t annot)
+branchLookup lab = lookup lab . map branchUnpack
+
+
+{--------------------------------------------------------------------------
+  Instances
+--------------------------------------------------------------------------}
+
+instance Eq (Ident annot) where
+  (==) = (==) `on` identName
+
+instance Eq (Channel annot) where
+  (==) = (==) `on` channelName
+
+instance Eq (Label annot) where
+  (==) = (==) `on` labelName
+
+instance Ord (Ident annot) where
+  compare = compare `on` identName
+
+instance Ord (Channel annot) where
+  compare = compare `on` channelName
+
+instance Ord (Label annot) where
+  compare = compare `on` labelName
+
+
+identName :: Ident annot -> String
+identName (Ident _ n) = n
+
+channelName :: Channel annot -> String
+channelName (Channel _ n) = n
+
+labelName :: Label annot -> String
+labelName (Label _ n) = n
+
+
 {--------------------------------------------------------------------------
   Annotations
 --------------------------------------------------------------------------}
@@ -61,7 +127,7 @@ instance Annotated Module where
   annot (Module annot _ _) = annot
 
 instance Annotated Declaration where
-  annot (Declaration annot _ _ _ _) = annot
+  annot (Declaration annot _ _ _) = annot
 
 
 instance Annotated Type where
@@ -74,9 +140,13 @@ instance Annotated Type where
   annot (TUnion annot _ _) = annot
 
 instance Annotated Exp where
+  annot (EFwdProv annot _) = annot
+  annot (ECloseProv annot) = annot
+  annot (ESendProv annot _ _) = annot
+  annot (ERecvProv annot _ _) = annot
+  annot (ESelectProv annot _ _) = annot
+  annot (ECaseProv annot _) = annot
   annot (ECut annot _ _ _ _) = annot
-  annot (EFwd annot _ _) = annot
-  annot (EClose annot _) = annot
   annot (EWait annot _ _) = annot
   annot (ESend annot _ _ _) = annot
   annot (ERecv annot _ _ _) = annot
@@ -104,6 +174,10 @@ instance Annotated (Branch t) where
   Printing
 --------------------------------------------------------------------------}
 
+wildcard :: Doc
+wildcard = text "_"
+
+
 instance Pretty (File annot) where
   pPrint (File _ ms) = vcat (punctuate nl $ map pPrint ms)
 
@@ -112,8 +186,8 @@ instance Pretty (Module annot) where
     $$ nest indentation (vcat $ punctuate nl $ map pPrint decls)
 
 instance Pretty (Declaration annot) where
-  pPrint (Declaration _ ident c t e) = pPrint ident <+> colon <+> pPrint t
-    $$ pPrint c <+> leftArrow <+> pPrint ident <+> text "=" <+> pPrint e
+  pPrint (Declaration _ ident t e) = pPrint ident <+> colon <+> pPrint t
+    $$ pPrint ident <+> text "=" <+> pPrint e
 
 
 -- TODO: better parens
@@ -129,13 +203,21 @@ instance Pretty (Type annot) where
   pPrint (TUnion _ a b) = parens (pPrint a <+> text "or" <+> pPrint b)
 
 instance Pretty (Exp annot) where
-  pPrint (ECut _ c e1 t e2) = pPrint c <+> leftArrow <+> pPrint e1
-    <+> colon <+> pPrint t <> semi $$ pPrint e2
-  pPrint (EFwd _ c d) = pPrint c <+> leftArrow <+> pPrint d
-  pPrint (EClose _ c) = text "close" <+> pPrint c
-  pPrint (EWait _ c e) = text "wait" <+> pPrint c <> semi $$ pPrint e
-  pPrint (ESend _ c d e) = text "send" <+> pPrint c <+> pPrint d
+  pPrint (EFwdProv _ d) = wildcard <+> leftArrow <+> pPrint d
+  pPrint (ECloseProv _) = text "close" <+> wildcard
+  pPrint (ESendProv _ e1 e2) = text "send" <+> wildcard <+> parens (
+    wildcard <+> leftArrow <+> pPrint e1) <> semi $$ pPrint e2
+  pPrint (ERecvProv _ d e) = pPrint d <+> leftArrow <+> text "recv" <+> wildcard
     <> semi $$ pPrint e
+  pPrint (ESelectProv _ lab e) = wildcard <> char '.' <> pPrint lab
+    <> semi $$ pPrint e
+  pPrint (ECaseProv _ br) = text "case" <+> wildcard <+> text "of"
+    $$ nest indentation (vcat $ map pPrint br)
+  pPrint (ECut _ c e1 t e2) = pPrint c <+> leftArrow <+> parens (pPrint e1
+    <+> colon <+> pPrint t) <> semi $$ pPrint e2
+  pPrint (EWait _ c e) = text "wait" <+> pPrint c <> semi $$ pPrint e
+  pPrint (ESend _ c e1 e2) = text "send" <+> pPrint c <+> parens (
+    wildcard <+> leftArrow <+> pPrint e1) <> semi $$ pPrint e2
   pPrint (ERecv _ c d e) = pPrint c <+> leftArrow <+> text "recv" <+> pPrint d
     <> semi $$ pPrint e
   pPrint (ESelect _ c lab e) = pPrint c <> char '.' <> pPrint lab

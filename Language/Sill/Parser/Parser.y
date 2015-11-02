@@ -265,7 +265,9 @@ ExpLine : Channel '<-' Exp ':' Type   { ECut (mergeLocated $1 $5) $1 $3 $5 }
         | Channel '<-' Channel        { EFwd (mergeLocated $1 $3) $1 $3 }
         | close Channel               { EClose (mergeLocated $1 $2) $2 }
         | wait Channel                { EWait (mergeLocated $1 $2) $2 }
-        | send Channel Channel        { ESend (mergeLocated $1 $3) $2 $3 }
+        | send Channel '(' Channel '<-' Exp ')'
+                                      { ESend (mergeLocated $1 $7) $2 ($4, $6) }
+        | send Channel Channel        { ESendChannel (mergeLocated $1 $3) $2 $3 }
         | Channel '<-' recv Channel   { ERecv (mergeLocated $1 $4) $1 $4 }
         | Channel '.' Label           { ESelect (mergeLocated $1 $3) $1 $3 }
         | case Channel of Block(Case) { ECase (mergeLocated $1 $4) $2 (unLoc $4) }

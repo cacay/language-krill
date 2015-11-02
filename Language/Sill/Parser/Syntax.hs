@@ -8,6 +8,8 @@
 -----------------------------------------------------------------------------
 module Language.Sill.Parser.Syntax where
 
+import Data.Function (on)
+
 import Text.PrettyPrint
 import Text.PrettyPrint.HughesPJClass (Pretty (..), prettyShow)
 import Language.Sill.Utility.Pretty
@@ -38,7 +40,8 @@ data ExpLine annot = ECut annot (Channel annot) (Exp annot) (Type annot)
                    | EFwd annot (Channel annot) (Channel annot)
                    | EClose annot (Channel annot)
                    | EWait annot (Channel annot)
-                   | ESend annot (Channel annot) (Channel annot)
+                   | ESend annot (Channel annot) (Channel annot, Exp annot)
+                   | ESendChannel annot (Channel annot) (Channel annot)
                    | ERecv annot (Channel annot) (Channel annot)
                    | ESelect annot (Channel annot) (Label annot)
                    | ECase annot (Channel annot) [Branch Exp annot]
@@ -51,6 +54,39 @@ data Channel annot = Channel annot String
 data Label annot = Label annot String
 
 data Branch t annot = Branch annot (Label annot) (t annot)
+
+
+{--------------------------------------------------------------------------
+  Instances
+--------------------------------------------------------------------------}
+
+instance Eq (Ident annot) where
+  (==) = (==) `on` identName
+
+instance Eq (Channel annot) where
+  (==) = (==) `on` channelName
+
+instance Eq (Label annot) where
+  (==) = (==) `on` labelName
+
+instance Ord (Ident annot) where
+  compare = compare `on` identName
+
+instance Ord (Channel annot) where
+  compare = compare `on` channelName
+
+instance Ord (Label annot) where
+  compare = compare `on` labelName
+
+
+identName :: Ident annot -> String
+identName (Ident _ n) = n
+
+channelName :: Channel annot -> String
+channelName (Channel _ n) = n
+
+labelName :: Label annot -> String
+labelName (Label _ n) = n
 
 
 {--------------------------------------------------------------------------
@@ -85,6 +121,7 @@ instance Annotated ExpLine where
   annot (EClose annot _) = annot
   annot (EWait annot _) = annot
   annot (ESend annot _ _) = annot
+  annot (ESendChannel annot _ _) = annot
   annot (ERecv annot _ _) = annot
   annot (ESelect annot _ _) = annot
   annot (ECase annot _ _) = annot
@@ -93,14 +130,11 @@ instance Annotated ExpLine where
 instance Annotated Ident where
   annot (Ident annot _) = annot
 
-
 instance Annotated Channel where
   annot (Channel annot _) = annot
 
-
 instance Annotated Label where
   annot (Label annot _) = annot
-
 
 instance Annotated (Branch t) where
   annot (Branch annot _ _) = annot
@@ -144,7 +178,9 @@ instance Pretty (ExpLine annot) where
   pPrint (EFwd _ c d) = pPrint c <+> leftArrow <+> pPrint d
   pPrint (EClose _ c) = text "close" <+> pPrint c
   pPrint (EWait _ c) = text "wait" <+> pPrint c
-  pPrint (ESend _ c d) = text "send" <+> pPrint c <+> pPrint d
+  pPrint (ESend _ c (d, e)) =
+    text "send" <+> pPrint c <+> parens (pPrint d <+> leftArrow <+> pPrint e)
+  pPrint (ESendChannel _ c d) = text "send" <+> pPrint c <+> pPrint d
   pPrint (ERecv _ c d) = pPrint c <+> leftArrow <+> text "recv" <+> pPrint d
   pPrint (ESelect _ c lab) = pPrint c <> char '.' <> pPrint lab
   pPrint (ECase _ c br) = text "case" <+> pPrint c <+> text "of"

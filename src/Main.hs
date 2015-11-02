@@ -11,6 +11,7 @@ import qualified Language.Sill.Parser.Parser as Parser
 import Language.Sill.Parser.Syntax (File, Module)
 import Language.Sill.Parser.Token (Lexeme, Token, token)
 import Language.Sill.Parser.Location (SrcSpan)
+import Language.Sill.TypeChecker.TypeChecker (checkFile)
 
 
 parseTokens :: FilePath -> IO [Token]
@@ -27,6 +28,10 @@ parseFile f = do
     Left err -> error err
     Right e -> return e
 
+liftIOEither :: Show e => Either e a -> IO a
+liftIOEither (Left e) = error (show e)
+liftIOEither (Right a) = return a
+
 main :: IO ()
 main = do
   args <- getArgs
@@ -41,6 +46,10 @@ main = do
   print file
 
   putStrLn "\nAST:"
-  case elaborateFile file of
-    Left err -> print err
-    Right ast -> print ast
+  elab <- liftIOEither (elaborateFile file)
+
+  putStrLn "\nType checking:"
+  liftIOEither (checkFile elab)
+
+  return ()
+

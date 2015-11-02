@@ -21,6 +21,7 @@ library
 
   exposed-modules:       Language.Sill.AST
                          Language.Sill.Elaborator
+                         Language.Sill.TypeChecker.TypeChecker
                          Language.Sill.Parser.Parser
                          Language.Sill.Parser.Annotated
                          Language.Sill.Parser.Location
@@ -29,6 +30,10 @@ library
 
   other-modules:         Language.Sill.Parser.Lexer
                          Language.Sill.Parser.AlexUserState
+                         Language.Sill.TypeChecker.Common
+                         Language.Sill.TypeChecker.FreeVariables
+                         Language.Sill.TypeChecker.Subtyping
+                         Language.Sill.TypeChecker.Types
                          Language.Sill.Utility.Error
                          Language.Sill.Utility.List
                          Language.Sill.Utility.Pretty
@@ -51,6 +56,9 @@ library
                          MultiParamTypeClasses
 
   other-extensions:      FlexibleInstances
+
+  ghc-options:           -fwarn-incomplete-patterns
+                         -- -fwarn-unused-imports
 
 
 executable sill

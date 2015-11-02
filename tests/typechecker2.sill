@@ -1,0 +1,19 @@
+-- All cases in this file should fail
+module Main where
+
+  -- simple : 1 -o 1
+  -- `c <- simple = close `c
+
+  -- type A = 1 -o 1
+  -- type B = 1
+  order : ((1 -o 1 -o 1) * 1 and 1 * 1)
+       -o ((1 -o 1) -o 1 or 1 -o 1)
+       -o 1
+  `e <- order = do
+    `c <- recv `e
+    `d <- recv `e
+    `x <- recv `c
+    wait `c
+    send `d `x
+    wait `d
+    close `e

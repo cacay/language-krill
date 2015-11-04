@@ -89,6 +89,7 @@ import Language.Sill.Parser.Syntax
 
   -- Identifiers
   ident        { Lexeme _ (Token.TIdent _) }
+  constructor  { Lexeme _ (Token.TConstructor _) }
   channel      { Lexeme _ (Token.TChannel _) }
 
 
@@ -218,6 +219,7 @@ Token : module       { Token.TModule }
 
       -- Identifiers
       | ident        { token $1 }
+      | constructor  { token $1 }
       | channel      { token $1 }
 
 

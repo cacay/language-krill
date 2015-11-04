@@ -61,15 +61,15 @@ $bindigit    = 0-1
 $octdigit    = 0-7
 $hexdigit    = [ $digit A-F a-f ]
 
-$alpha       = [ A-Z a-z ]
-$alphanum    = [$alpha $digit]
+$upper       = [ A-Z ]
+$lower       = [ a-z ]
+$alpha       = [ $upper $lower ]
+$alphanum    = [ $alpha $digit ]
 $symbol      = [ \! \# \$ \% \& \* \+ \- \/ \: \< \= \> \? \[ \] \\ \^ \| \~ ]
 -- These characters cannot appear as name parts
 $reserved    = [ \" \' \( \) \, \. \; \@ \_ \` \{ \} ]
 
--- Mixfix identifiers
-$mixstart    = [$alpha $symbol # [ \- \\ ]]
-$mixchar     = [$alphanum $symbol]
+$idchar      = [ $alphanum $wild ]
 
 $any         = [ $alphanum $symbol $reserved $white ]
 $any_no_nl   = [ $any # $newline ]
@@ -95,16 +95,8 @@ $white_no_nl = [$white # $newline]
 @exponent    = [eE] [\-\+]? @decimal
 @float       = @decimal \. @decimal @exponent? | @decimal @exponent
 
--- Mixfix parts:
---  * Cannot start with a digit (to exclude numbers)
---  * Cannot start with "-" followed by a digit (to exclude signed numbers)
---  * Cannot start with "\" to allow lambdas
---  * Cannot be exactly "-"{2,} to unambiguate comments
-@mixfix_part = $mixstart $mixchar*
-             | \-
-             | \- [$mixstart \\] $mixchar*
-             | [\-]{2,} [$mixchar # \-] $mixchar*
-@mixfix      = $wild? (@mixfix_part $wild)* @mixfix_part $wild?
+@varid       = $lower $idchar*  -- variable identifiers
+@conid       = $upper $idchar*  -- constructor identifiers
 
 
 -- -----------------------------------------------------------------------------
@@ -127,11 +119,8 @@ tokens :-
 <code, bol, layout> $white_no_nl+              ;
 
 -- Comments
-<code, bol, layout>
-  {
-     [\-]{2,}                                  ;
-     [\-]{2,} [$comment # $mixchar] $comment*  ;
-  }
+<code, bol, layout> [\-]{2,} $comment*         ;
+
 <code, bol, layout, comment>
   "{-"                           { just $ pushCode comment }
 <comment>    "-}"                { just $ popCode }
@@ -215,10 +204,9 @@ tokens :-
 
 
 -- Mixfix operators and identifiers
-<code> @mixfix                 { mkTok TIdent }               -- TODO: do this right
-<code> \` @mixfix              { mkTok (TChannel . drop 1)  } -- TODO: do this right
--- <code> @mixfix              { mkTok TMixfixPart }          -- TODO: do this right
-
+<code> @varid                  { mkTok TIdent }
+<code> @conid                  { mkTok TConstructor }
+<code> \` @varid               { mkTok TChannel }
 
 {
 

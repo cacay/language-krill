@@ -218,7 +218,7 @@ instance Pretty (Ident annot) where
   pPrint (Ident _ ident) = text ident
 
 instance Pretty (Channel annot) where
-  pPrint (Channel _ c) = char '`' <> text c
+  pPrint (Channel _ c) = text c
 
 instance Pretty (Label annot) where
   pPrint (Label _ lab) = text lab

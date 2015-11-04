@@ -13,6 +13,9 @@ module Language.Sill.Parser.Token
 
 import Language.Sill.Parser.Location (SrcSpan, Located(..))
 
+import Text.PrettyPrint
+import Text.PrettyPrint.HughesPJClass (Pretty (..), prettyShow)
+
 
 data Token =
   -- Keywords
@@ -70,17 +73,12 @@ data Token =
 
   -- Identifiers
   | TIdent String
+  | TConstuctor String
   | TChannel String
-
-  -- Mixfix operators
-  | TMixfixPart String
-  | TPreHole
-  | TInHole
-  | TPostHole
 
   -- Lexing and parsing
   | TEof
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord)
 
 
 data Lexeme = Lexeme SrcSpan Token
@@ -90,4 +88,86 @@ token (Lexeme _ t) = t
 
 instance Located Lexeme where
   location (Lexeme s _) = s
+
+
+----------------------------------------------------------------------------
+-- * Printing
+----------------------------------------------------------------------------
+
+instance Pretty Token where
+  -- Keywords
+  pPrint TModule = text "module"
+  pPrint TData = text "data"
+  pPrint TType = text "type"
+  pPrint TInfix = text "infix"
+  pPrint TLet = text "let"
+  pPrint TIn = text "in"
+  pPrint TWhere = text "where"
+  pPrint TDo = text "do"
+  pPrint TCase = text "case"
+  pPrint TOf = text "of"
+
+  -- Special Symbols
+  pPrint TOpenParen = text "("
+  pPrint TCloseParen = text ")"
+  pPrint TOpenBrace = text "{"
+  pPrint TCloseBrace = text "}"
+  pPrint TSemi = semi
+  pPrint TOpenVirtualBrace = text "`{"
+  pPrint TCloseVirtualBrace = text "`}"
+  pPrint TVirtualSemi = text "`;"
+  pPrint TDot = text "."
+  pPrint TComma = comma
+  pPrint TWild = text "_"
+
+  -- Reserved Symbols
+  pPrint TEqual = text "="
+  pPrint TBar = text "|"
+  pPrint TColon = colon
+  pPrint TRightArrow = text "->"
+  pPrint TLeftArrow = text "<-"
+  pPrint TLam = text "\\"
+
+  pPrint TUnit = text "1"
+  pPrint TTensor = text "*"
+  pPrint TInternal = text "+"
+  pPrint TLolli = text "-o"
+  pPrint TExternal = text "&"
+  pPrint TIntersect = text "and"
+  pPrint TUnion = text "or"
+
+  pPrint TClose = text "close"
+  pPrint TWait = text "wait"
+  pPrint TSend = text "send"
+  pPrint TRecv = text "recv"
+
+  -- Literals
+  pPrint (TChar c) = pPrint c
+  pPrint (TString s) = pPrint s
+  pPrint (TNatural n) = pPrint n
+  pPrint (TInteger i) = pPrint i
+  pPrint (TRational d) = pPrint d
+
+  -- Identifiers
+  pPrint (TIdent id) = text "identifier" <> parens (text id)
+  pPrint (TConstuctor id) = text "construtor" <> parens (text id)
+  pPrint (TChannel c) = text "channel" <> parens (text c)
+
+  -- Lexing and parsing
+  pPrint TEof = text "<EOF>"
+
+
+instance Pretty Lexeme where
+  pPrint (Lexeme loc token) = pPrint token <+> text "at" <+> pPrint loc
+
+
+----------------------------------------------------------------------------
+-- * Showing
+----------------------------------------------------------------------------
+
+instance Show Token where
+  show = prettyShow
+
+instance Show Lexeme where
+  show = prettyShow
 

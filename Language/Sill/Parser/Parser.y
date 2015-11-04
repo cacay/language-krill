@@ -229,7 +229,7 @@ Token : module       { Token.TModule }
 
 -- TODO: Qualified names should be different from identifiers
 Qualified :: { Ident annot }
-Qualified : Ident  { $1 }
+Qualified : constructor  { Ident (location $1) $ (\(Token.TConstructor id) -> id) (token $1) }
 
 Ident :: { Ident annot }
 Ident : ident  { Ident (location $1) $ (\(Token.TIdent id) -> id) (token $1) }

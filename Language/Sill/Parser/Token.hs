@@ -73,7 +73,7 @@ data Token =
 
   -- Identifiers
   | TIdent String
-  | TConstuctor String
+  | TConstructor String
   | TChannel String
 
   -- Lexing and parsing
@@ -150,7 +150,7 @@ instance Pretty Token where
 
   -- Identifiers
   pPrint (TIdent id) = text "identifier" <> parens (text id)
-  pPrint (TConstuctor id) = text "construtor" <> parens (text id)
+  pPrint (TConstructor id) = text "construtor" <> parens (text id)
   pPrint (TChannel c) = text "channel" <> parens (text c)
 
   -- Lexing and parsing

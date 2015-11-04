@@ -30,7 +30,7 @@ import Language.Sill.TypeChecker.FreeVariables (freeChannels)
 import Language.Sill.TypeChecker.Subtyping (subBase)
 import qualified Language.Sill.TypeChecker.Types as Types
 
-import Language.Sill.Utility.Pretty (indentation)
+import Language.Sill.Utility.Pretty (indentation, period)
 
 
 type Base = Types.Base SrcSpan
@@ -117,12 +117,13 @@ checkBase ctx p@(Ast.ECloseProv _) targets = do
 checkBase ctx p@(Ast.EWait _ d p') targets = do
   (dtypes, ctx') <- lookupRemove d ctx
   when (null [() | t@Types.TUnit {} <- dtypes]) $
-    typeError (text "Cannot wait on non-closed channel") ctx p targets
+    matchError (Just d) (text "1") dtypes ctx p targets
   checkBase ctx' p' targets
 -- productR
 checkBase ctx p1@(Ast.ESendProv _ p2 p1') targets = do
   let products = [(a, b) | Types.TProduct _ a b <- targets]
-  when (null products) $ typeError empty ctx p1 targets
+  when (null products) $
+    matchError Nothing (text "_ * _") targets ctx p1 targets
   let (ctx2, ctx1') = splitFree p2 ctx
   let test (a, b) = decomposeTarget (ctx2, []) p2 [] [a]
                  >> decomposeTarget (ctx1', []) p1' [] [b]
@@ -131,21 +132,26 @@ checkBase ctx p1@(Ast.ESendProv _ p2 p1') targets = do
 checkBase ctx p@(Ast.ERecv _ d c p') targets = do
   (ctypes, ctx') <- lookupRemove c ctx
   let products = [(a, b) | Types.TProduct _ a b <- ctypes]
-  when (null products) $ typeError empty ctx p targets
+  when (null products) $
+    matchError (Just c) (text "_ * _") ctypes ctx p targets
   checkFree d ctx
   let test (a, b) = decomposeContext ctx [(d, a), (c, b)] p' targets
   runAny_ $ map test products
 -- +R
 checkBase ctx p@(Ast.ESelectProv _ lab p') targets = do
   let internals = [brs | Types.TInternal _ brs <- targets]
+  when (null internals) $
+    matchError Nothing (text "+{...}") targets ctx p targets
   let targets' = mapMaybe (Ast.branchLookup lab) internals
-  when (null targets') $ typeError empty ctx p targets
+  when (null targets') $
+    typeError (text "Invalid selection" <+> quotes (pPrint lab)) ctx p targets
   decomposeTarget (ctx, []) p' [] targets'
 -- +L
 checkBase ctx p@(Ast.ECase _ c cases) targets = do
   ctypes <- lookup c ctx
   let internals = [brs | Types.TInternal _ brs <- ctypes]
-  when (null internals) $ typeError empty ctx p targets
+  when (null internals) $
+    matchError (Just c) (text "+{...}") ctypes ctx p targets
   runAny_ $ map test internals
   where
     ctx' = Map.delete c ctx
@@ -158,7 +164,8 @@ checkBase ctx p@(Ast.ECase _ c cases) targets = do
 -- -o R
 checkBase ctx p@(Ast.ERecvProv _ d p') targets = do
   let arrows = [(a, b) | Types.TArrow _ a b <- targets]
-  when (null arrows) $ typeError empty ctx p targets
+  when (null arrows) $
+    matchError Nothing (text "_ -o _") targets ctx p targets
   checkFree d ctx
   let test (a, b) = decomposeTarget (ctx, [(d, a)]) p' [] [b]
   runAny_ $ map test arrows
@@ -166,7 +173,8 @@ checkBase ctx p@(Ast.ERecvProv _ d p') targets = do
 checkBase ctx p1@(Ast.ESend _ c p2 p1') targets = do
   (ctypes, ctx') <- lookupRemove c ctx
   let arrows = [(a, b) | Types.TArrow _ a b <- ctypes]
-  when (null arrows) $ typeError empty ctx p1 targets
+  when (null arrows) $
+    matchError (Just c) (text "_ -o _") ctypes ctx p1 targets
   let (ctx2, ctx1') = splitFree p2 ctx'
   let test (a, b) = decomposeTarget (ctx2, []) p2 [] [a]
                  >> decomposeContext ctx1' [(c, b)] p1' targets
@@ -174,7 +182,8 @@ checkBase ctx p1@(Ast.ESend _ c p2 p1') targets = do
 -- &R
 checkBase ctx p@(Ast.ECaseProv _ cases) targets = do
   let externals = [brs | Types.TExternal _ brs <- targets]
-  when (null externals) $ typeError empty ctx p targets
+  when (null externals) $
+    matchError Nothing (text "&{...}") targets ctx p targets
   runAny_ $ map test externals
   where
     test :: [Ast.Branch Types.Property SrcSpan] -> Compiler ()
@@ -186,8 +195,11 @@ checkBase ctx p@(Ast.ECaseProv _ cases) targets = do
 checkBase ctx p@(Ast.ESelect _ c lab p') targets = do
   (ctypes, ctx') <- lookupRemove c ctx
   let externals = [brs | Types.TExternal _ brs <- ctypes]
+  when (null externals) $
+    matchError (Just c) (text "&{...}") ctypes ctx p targets
   let ctypes' = mapMaybe (Ast.branchLookup lab) externals
-  when (null ctypes') $ typeError empty ctx p targets
+  when (null ctypes') $
+    typeError (text "Invalid selection" <+> quotes (pPrint lab)) ctx p targets
   decomposeContext ctx' (map (c,) ctypes') p' targets
 
 
@@ -204,7 +216,7 @@ checkBranches check error cases branches = runAll_ $ map checkBranch branches
     checkBranch :: Ast.Branch Types.Property SrcSpan -> Compiler ()
     checkBranch (Ast.Branch _ lab t) | Just p <- Map.lookup lab cases' =
       check p t
-    checkBranch br = error (text "No case given for" <+> parens (pPrint br))
+    checkBranch br = error (text "No case given for" <+> braces (pPrint br))
 
 
 {--------------------------------------------------------------------------
@@ -222,6 +234,27 @@ typeError msg ctx e ts = compilerError (location e) $
        ]
   where t = foldr1 (Types.TUnion $ location e) (map Types.TBase ts)
 
+matchError :: Maybe Channel
+           -> Doc
+           -> [Base]
+           -> BaseContext
+           -> Exp
+           -> [Base]
+           -> Compiler ()
+matchError c expected got ctx e ts = compilerError (location e)
+  (vcat [ text "Cannot match the expected structure:"
+            <+> channel <+> colon <+> expected <> period
+        , text "Available options were:"
+        , nest indentation (vcat $ map pPrint got)
+        ])
+  `inContext` makeCompilerContext Nothing empty
+    (vcat [ text "While checking the expression"
+         , nest indentation $ pPrint e
+         , text "in the context"
+         , nest indentation $ prettyContext ctx
+         ])
+  where t = foldr1 (Types.TUnion $ location e) (map Types.TBase ts)
+        channel = case c of {Nothing -> text "_"; Just c -> pPrint c}
 
 prettyContext :: BaseContext -> Doc
 prettyContext ctx = brackets $ vcat $ punctuate comma $

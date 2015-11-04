@@ -104,10 +104,10 @@ elabDeclarations decls = do
     [ runAll_ $ map checkDefined sigs
     , runAll_ $ map checkSignature clauses
     , checkDuplicatesOn sigId
-        (\id -> text "Multiple type signatures given for" <+> text id <> colon)
+        (\id -> text "Multiple type signatures given for" <+> text id)
         sigs
     , checkDuplicatesOn clauseId
-        (\id -> text "Multiple clauses given for" <+> text id <> colon)
+        (\id -> text "Multiple clauses given for" <+> text id)
         clauses
     ]
   ctx <- elabTypeSigs sigs
@@ -166,12 +166,12 @@ elabType (Syn.TArrow annot a b) =
   liftM2 (Ast.TArrow annot) (elabType a) (elabType b)
 elabType (Syn.TInternal annot brs) = do
   checkDuplicatesOn Syn.branchLabel
-    (\id -> text "Multiple types given for" <+> pPrint id <> colon) brs
+    (\id -> text "Multiple types given for" <+> pPrint id) brs
   brs' <- runAll $ map (elabBranch elabType) brs
   return $ Ast.TInternal annot brs'
 elabType (Syn.TExternal annot brs) = do
   checkDuplicatesOn Syn.branchLabel
-    (\id -> text "Multiple types given for" <+> pPrint id <> colon) brs
+    (\id -> text "Multiple types given for" <+> pPrint id) brs
   brs' <- runAll $ map (elabBranch elabType) brs
   return $ Ast.TExternal annot brs'
 elabType (Syn.TIntersect annot a b) =
@@ -184,10 +184,12 @@ elabType (Syn.TUnion annot a b) =
 elabExp :: Syn.Channel SrcSpan -> Syn.Exp SrcSpan -> Compiler (Ast.Exp SrcSpan)
 elabExp c e@(Syn.Exp annot []) = compilerError (location e)
   (text "Process expression cannot be empty:" $$ pPrint e)
-elabExp c (Syn.Exp annot es) | r : rs <- reverse es = do
+elabExp c (Syn.Exp annot es) = do
   r' <- elabLast r
   foldM (flip elabLine) r' rs
   where
+    r : rs = reverse es
+
     -- Convert a terminating expression
     elabLast :: Syn.ExpLine SrcSpan -> Compiler (Ast.Exp SrcSpan)
     elabLast (Syn.EFwd annot c' d) | c == c' =

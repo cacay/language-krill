@@ -9,6 +9,13 @@ module Main where
       close `c
 
   -- Invalid case
+  external2 : &{term : 1, product : 1 * 1} -o 1
+  `c <- external2 = do
+    `d <- recv `c
+    `d.missing
+    close `c
+
+  -- Invalid case
   internal : +{term : 1, product : 1 * 1}
   `c <- internal = do
     `c.missing

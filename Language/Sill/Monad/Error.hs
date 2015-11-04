@@ -70,10 +70,12 @@ instance Pretty ErrorWithContext where
   pPrint (Error err) = pPrint err
   pPrint (Context ctx err) =
     case ctxLocation ctx of
-      Nothing -> body
-      Just loc -> pPrint loc <> colon $+$ nest indentation body
+      Nothing -> body ctx
+      Just loc -> pPrint loc <> colon $+$ nest indentation (body ctx)
     where
-      body = ctxBefore ctx $+$ nest indentation (pPrint err) $+$ ctxAfter ctx
+      body :: ContextInfo -> Doc
+      body ctx | isEmpty (ctxBefore ctx) = pPrint err $+$ ctxAfter ctx
+      body ctx = ctxBefore ctx $+$ nest indentation (pPrint err) $+$ ctxAfter ctx
 
 instance Pretty ErrorInfo where
   pPrint err = pPrint (errLocation err) <> colon

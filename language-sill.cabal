@@ -20,7 +20,8 @@ library
   default-language:      Haskell2010
 
   exposed-modules:       Language.Sill.AST
-                         Language.Sill.Elaborator
+                         Language.Sill.Desugaring.Syntax
+                         Language.Sill.Desugaring.Desugar
                          Language.Sill.Monad.Compiler
                          Language.Sill.Parser.Parser
                          Language.Sill.Parser.Annotated

@@ -18,6 +18,10 @@ import Text.PrettyPrint
 indentation :: Int
 indentation = 2
 
+-- | A '.' character
+period :: Doc
+period = char '.'
+
 -- | A new line
 nl :: Doc
 nl = char '\n'

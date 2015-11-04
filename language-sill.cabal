@@ -21,20 +21,20 @@ library
 
   exposed-modules:       Language.Sill.AST
                          Language.Sill.Elaborator
-                         Language.Sill.TypeChecker.TypeChecker
+                         Language.Sill.Monad.Compiler
                          Language.Sill.Parser.Parser
                          Language.Sill.Parser.Annotated
                          Language.Sill.Parser.Location
                          Language.Sill.Parser.Syntax
                          Language.Sill.Parser.Token
+                         Language.Sill.TypeChecker.TypeChecker
 
-  other-modules:         Language.Sill.Parser.Lexer
+  other-modules:         Language.Sill.Monad.Error
+                         Language.Sill.Parser.Lexer
                          Language.Sill.Parser.AlexUserState
-                         Language.Sill.TypeChecker.Common
                          Language.Sill.TypeChecker.FreeVariables
                          Language.Sill.TypeChecker.Subtyping
                          Language.Sill.TypeChecker.Types
-                         Language.Sill.Utility.Error
                          Language.Sill.Utility.List
                          Language.Sill.Utility.Pretty
 
@@ -46,6 +46,7 @@ library
                          microlens-th >= 0.2.1,
                          transformers >= 0.2,
                          containers >= 0.5,
+                         dlist == 0.7.1.*,
                          array >= 0.4,
                          bytestring == 0.10.6.*,
                          mtl >= 2.2.1 && < 2.3,
@@ -56,6 +57,7 @@ library
                          MultiParamTypeClasses
 
   other-extensions:      FlexibleInstances
+                         GeneralizedNewtypeDeriving
 
   ghc-options:           -fwarn-incomplete-patterns
                          -- -fwarn-unused-imports

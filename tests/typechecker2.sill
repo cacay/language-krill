@@ -1,8 +1,8 @@
 -- All cases in this file should fail
 module Main where
 
-  -- simple : 1 -o 1
-  -- `c <- simple = close `c
+  simple : 1 -o 1
+  `c <- simple = close `c
 
   -- type A = 1 -o 1
   -- type B = 1

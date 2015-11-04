@@ -1,0 +1,27 @@
+{- Missing cases -}
+module Main where
+
+  -- Unhandled case
+  external : &{term : 1, product : 1 * 1}
+  `c <- external = case `c of
+    product -> do
+      send `c (`d <- close `d)
+      close `c
+
+  -- Invalid case
+  internal : +{term : 1, product : 1 * 1}
+  `c <- internal = do
+    `c.missing
+    close `c
+
+  -- Unhandled case on the left
+  internal2 : +{term : 1, product : 1 * 1} -o 1
+  `c <- internal2 = do
+    `d <- recv `c
+    case `d of
+      product -> do
+        `e <- recv `d
+        wait `d
+        wait `e
+        close `c
+

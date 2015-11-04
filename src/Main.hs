@@ -6,11 +6,14 @@ import System.Environment (getArgs)
 
 import qualified Data.ByteString.Lazy as BS
 
-import Language.Sill.Elaborator (elaborateFile)
-import qualified Language.Sill.Parser.Parser as Parser
-import Language.Sill.Parser.Syntax (File, Module)
-import Language.Sill.Parser.Token (Lexeme, Token, token)
 import Language.Sill.Parser.Location (SrcSpan)
+
+import Language.Sill.Parser.Token (Lexeme, Token, token)
+import Language.Sill.Parser.Syntax (File, Module)
+
+import Language.Sill.Elaborator (elaborateFile)
+import Language.Sill.Monad.Compiler (Compiler, runCompiler)
+import qualified Language.Sill.Parser.Parser as Parser
 import Language.Sill.TypeChecker.TypeChecker (checkFile)
 
 
@@ -46,10 +49,10 @@ main = do
   print file
 
   putStrLn "\nAST:"
-  elab <- liftIOEither (elaborateFile file)
+  elab <- liftIOEither $ runCompiler $ elaborateFile file
 
   putStrLn "\nType checking:"
-  liftIOEither (checkFile elab)
+  liftIOEither $ runCompiler $ checkFile elab
 
   return ()
 

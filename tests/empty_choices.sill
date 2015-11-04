@@ -1,0 +1,12 @@
+{- Tests for empty cases -}
+
+module Main where
+
+  external : &{}
+  `c <- external = case `c of
+
+  internal : +{} -o 1
+  `c <- internal = do
+    `d <- recv `c
+    case `d of
+

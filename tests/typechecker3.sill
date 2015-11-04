@@ -1,4 +1,4 @@
-{- Tests with cases -}
+{- Tests for cases -}
 
 module Main where
 

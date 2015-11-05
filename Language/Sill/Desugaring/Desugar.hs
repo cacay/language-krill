@@ -6,10 +6,17 @@
 -- Maintainer  : coskuacay@gmail.com
 -- Stability   : experimental
 --
--- desugaroration combines expression lines into one expression, and puts all
--- parts of a process (type signature and all clauses) together. It also
--- checks for duplicate type signatures, duplicate or missing function
--- definitions.
+-- Desugaring does the following transformations:
+--   * Combines possibly multi-line do expressions into a single expression
+--   * Combines related function clauses and its type signature into one
+--
+-- Desugaring also checks that:
+--   * Each identifier has exactly one type signature
+--   * Each identifier has exactly one definition (we only have one clause functions)
+--   * Each type signature has corresponding function clause
+--   * Each function has a type signature
+--   * Case statements do not have duplicate branches
+--   * Internal (+{...}) and external (&{...}) choices do not have duplicate labels
 -----------------------------------------------------------------------------
 module Language.Sill.Desugaring.Desugar
   ( desugarFile

@@ -33,6 +33,7 @@ library
   other-modules:         Language.Sill.Monad.Error
                          Language.Sill.Parser.Lexer
                          Language.Sill.Parser.AlexUserState
+                         Language.Sill.TypeChecker.Context
                          Language.Sill.TypeChecker.FreeVariables
                          Language.Sill.TypeChecker.Subtyping
                          Language.Sill.TypeChecker.Types

@@ -12,20 +12,20 @@ module Language.Sill.TypeChecker.TypeChecker
   )
   where
 
-import Prelude hiding (lookup)
-
 import Control.Monad
-
-import qualified Data.Map.Strict as Map
 import Data.Maybe (mapMaybe)
+import qualified Data.Map.Strict as Map
 
 import Text.PrettyPrint
 import Text.PrettyPrint.HughesPJClass (Pretty (..), prettyShow)
 
-import qualified Language.Sill.AST as Ast
+import Language.Sill.Monad.Compiler
 import Language.Sill.Parser.Location (Located (..), mergeLocated, SrcSpan)
 
-import Language.Sill.Monad.Compiler
+import qualified Language.Sill.AST as Ast
+
+import Language.Sill.TypeChecker.Context (Context, typedefs, functions, channels)
+import qualified Language.Sill.TypeChecker.Context as Context
 import Language.Sill.TypeChecker.FreeVariables (freeChannels)
 import Language.Sill.TypeChecker.Subtyping (subBase)
 import qualified Language.Sill.TypeChecker.Types as Types
@@ -33,16 +33,25 @@ import qualified Language.Sill.TypeChecker.Types as Types
 import Language.Sill.Utility.Pretty (indentation, period)
 
 
+----------------------------------------------------------------------------
+-- * Shorthands
+----------------------------------------------------------------------------
+
 type Base = Types.Base SrcSpan
 type Property = Types.Property SrcSpan
 
 type Exp = Ast.Exp SrcSpan
+
+type Ident = Ast.Ident SrcSpan
+type Constructer = Ast.Constructer SrcSpan
 type Channel = Ast.Channel SrcSpan
 
--- TODO: Move these into their own abstract file
-type BaseContext = Map.Map Channel [Base]
+
+----------------------------------------------------------------------------
+-- * Context
+----------------------------------------------------------------------------
+
 type PropContext = [(Channel, Property)]
-type Context = (BaseContext, PropContext)
 
 
 {--------------------------------------------------------------------------
@@ -53,12 +62,13 @@ checkFile :: Ast.File SrcSpan -> Compiler ()
 checkFile (Ast.File _ modules) = runAll_ (map checkModule modules)
 
 checkModule :: Ast.Module SrcSpan -> Compiler ()
-checkModule (Ast.Module _ _ decls) = runAll_ (map checkDeclaration decls)
+checkModule (Ast.Module _ _ decls) =
+  runAll_ (map (checkDeclaration Context.empty) decls)
 
 
-checkDeclaration :: Ast.Declaration SrcSpan -> Compiler ()
-checkDeclaration (Ast.Declaration annot ident t p) = do
-  let m = decomposeTarget (Map.empty, []) p [] [Types.into t]
+checkDeclaration :: Context -> Ast.Declaration SrcSpan -> Compiler ()
+checkDeclaration ctx (Ast.Declaration annot ident t p) = do
+  let m = decomposeTarget (ctx, []) p [] [Types.into t]
   m `inContext` makeCompilerContext (Just annot)
     (text "Type errors in the definition of" <+> pPrint ident <> colon)
     (text "Cannot match the expected type" <+> pPrint t)
@@ -68,8 +78,8 @@ checkDeclaration (Ast.Declaration annot ident t p) = do
   Actual type-checker
 --------------------------------------------------------------------------}
 
-decomposeTarget :: Context -> Exp -> [Base] -> [Property] -> Compiler ()
-decomposeTarget (bCtx, pCtx) e bases [] = decomposeContext bCtx pCtx e bases
+decomposeTarget :: (Context, PropContext) -> Exp -> [Base] -> [Property] -> Compiler ()
+decomposeTarget (ctx, pCtx) e bases [] = decomposeContext ctx pCtx e bases
 decomposeTarget ctx e bases (p : ps) = case p of
   Types.TBase base -> decomposeTarget ctx e (base : bases) ps
   Types.TIntersect annot p1 p2 -> runAll_
@@ -79,23 +89,23 @@ decomposeTarget ctx e bases (p : ps) = case p of
   Types.TUnion annot p1 p2 -> decomposeTarget ctx e bases (p1 : p2 : ps)
 
 
-decomposeContext :: BaseContext -> PropContext -> Exp -> [Base] -> Compiler ()
-decomposeContext bases [] e ts = checkBase bases e ts
-decomposeContext bases ((d, p) : ps) e ts = case p of
-  Types.TBase base -> decomposeContext (addType d base bases) ps e ts
+decomposeContext :: Context -> PropContext -> Exp -> [Base] -> Compiler ()
+decomposeContext ctx [] e ts = checkBase ctx e ts
+decomposeContext ctx ((d, p) : ps) e ts = case p of
+  Types.TBase base -> decomposeContext (Context.add channels d base ctx) ps e ts
   Types.TIntersect annot p1 p2 ->
-    decomposeContext bases ((d, p1) : (d, p2) : ps) e ts
+    decomposeContext ctx ((d, p1) : (d, p2) : ps) e ts
   Types.TUnion annot p1 p2 -> runAll_
-    [ decomposeContext bases ((d, p1) : ps) e ts
-    , decomposeContext bases ((d, p2) : ps) e ts
+    [ decomposeContext ctx ((d, p1) : ps) e ts
+    , decomposeContext ctx ((d, p2) : ps) e ts
     ]
 
 
-checkBase :: BaseContext -> Exp -> [Base] -> Compiler ()
+checkBase :: Context -> Exp -> [Base] -> Compiler ()
 -- id
 checkBase ctx p@(Ast.EFwdProv _ d) targets = do
-  dtypes <- lookup d ctx
-  when (Map.size ctx > 1) $
+  (dtypes, ctx') <- lookupRemove d ctx
+  unless (Context.null channels ctx') $
     typeError (text "Unused channels in the context.") ctx p targets
   runAny_ [subBase dtype target | dtype <- dtypes, target <- targets]
 -- cut
@@ -107,7 +117,7 @@ checkBase ctx p1@(Ast.ECut _ c p2 t p1') targets = do
   decomposeContext ctx1' [(c, t')] p1' targets
 -- 1R
 checkBase ctx p@(Ast.ECloseProv _) targets = do
-  unless (Map.null ctx) $
+  unless (Context.null channels ctx) $
     typeError (text "Unused channels in the context.") ctx p targets
   when (null [() | t@Types.TUnit {} <- targets]) $
     typeError (text "Cannot close a channel that does not have type 1.")
@@ -148,13 +158,13 @@ checkBase ctx p@(Ast.ESelectProv _ lab p') targets = do
   decomposeTarget (ctx, []) p' [] targets'
 -- +L
 checkBase ctx p@(Ast.ECase _ c cases) targets = do
-  ctypes <- lookup c ctx
+  ctypes <- lookupChannel c ctx
   let internals = [brs | Types.TInternal _ brs <- ctypes]
   when (null internals) $
     matchError (Just c) (text "+{...}") ctypes ctx p targets
   runAny_ $ map test internals
   where
-    ctx' = Map.delete c ctx
+    ctx' = Context.delete channels c ctx
 
     test :: [Ast.Branch Types.Property SrcSpan] -> Compiler ()
     test = checkBranches
@@ -223,21 +233,21 @@ checkBranches check error cases branches = runAll_ $ map checkBranch branches
   Errors
 --------------------------------------------------------------------------}
 
-typeError :: Doc -> BaseContext -> Exp -> [Base] -> Compiler ()
+typeError :: Doc -> Context -> Exp -> [Base] -> Compiler ()
 typeError msg ctx e ts = compilerError (location e) $
   vcat [ text "Cannot match the expected type" <+> pPrint t <> colon
        , if isEmpty msg then empty else text "Error:" <+> msg
        , text "While checking the expression"
        , nest indentation $ pPrint e
        , text "in the context"
-       , nest indentation $ prettyContext ctx
+       , nest indentation $ Context.prettyChannels ctx
        ]
   where t = foldr1 (Types.TUnion $ location e) (map Types.TBase ts)
 
 matchError :: Maybe Channel
            -> Doc
            -> [Base]
-           -> BaseContext
+           -> Context
            -> Exp
            -> [Base]
            -> Compiler ()
@@ -251,58 +261,39 @@ matchError c expected got ctx e ts = compilerError (location e)
     (vcat [ text "While checking the expression"
          , nest indentation $ pPrint e
          , text "in the context"
-         , nest indentation $ prettyContext ctx
+         , nest indentation $ Context.prettyChannels ctx
          ])
   where t = foldr1 (Types.TUnion $ location e) (map Types.TBase ts)
         channel = case c of {Nothing -> text "_"; Just c -> pPrint c}
 
-prettyContext :: BaseContext -> Doc
-prettyContext ctx = brackets $ vcat $ punctuate comma $
-  map (uncurry typing) (Map.toList ctx)
-  where
-    typing :: Channel -> [Base] -> Doc
-    typing c ts = pPrint c <+> colon <+> pPrint (intersect ts)
-
-    intersect :: [Base] -> Property
-    intersect ts = foldr1 (Types.TUnion (locations ts)) $ map Types.TBase ts
-
-    locations :: [Base] -> SrcSpan
-    locations = foldr1 mergeLocated . map location
 
 
-
--- TODO: Move this into its own file
 {--------------------------------------------------------------------------
   Context management
 --------------------------------------------------------------------------}
 
--- | Add a new type for the given channel
-addType :: Channel -> Base -> BaseContext -> BaseContext
-addType c t = Map.insertWith (++) c [t]
-
 -- | Lookup the types for the given channel
-lookup :: Channel -> BaseContext -> Compiler [Base]
-lookup c ctx = case Map.lookup c ctx of
+lookupChannel :: Channel -> Context -> Compiler [Base]
+lookupChannel c ctx = case Context.lookup channels c ctx of
   Nothing -> compilerError (location c) $
     text "Unbound channel" <+> pPrint c <+> text "in the context" <> colon
-      $$ prettyContext ctx
+      $$ Context.prettyChannels ctx
   Just ts -> return ts
 
 -- | Lookup the types for the given channel and remove them from the context
-lookupRemove :: Channel -> BaseContext -> Compiler ([Base], BaseContext)
+lookupRemove :: Channel -> Context -> Compiler ([Base], Context)
 lookupRemove c ctx = do
-  t <- lookup c ctx
-  return (t, Map.delete c ctx)
+  t <- lookupChannel c ctx
+  return (t, Context.delete channels c ctx)
 
 -- | Ensure that the given channel does not occur in the context
-checkFree :: Channel -> BaseContext -> Compiler ()
-checkFree c ctx | Map.member c ctx = compilerError (location c) $
+checkFree :: Channel -> Context -> Compiler ()
+checkFree c ctx | Context.member channels c ctx = compilerError (location c) $
   text "Channel binding shadows previously bound channel" <+> pPrint c
-    <+> text "in the context:" $$ prettyContext ctx
+    <+> text "in the context:" $$ Context.prettyChannels ctx
 checkFree c ctx = return ()
 
 -- | Split the context into two based on the free channels in the given process
-splitFree :: Exp -> BaseContext -> (BaseContext, BaseContext)
-splitFree p ctx = (ctx `Map.intersection` free, ctx Map.\\ free)
-  where free = Map.fromList $ map (\c -> (c, ())) $ freeChannels p
+splitFree :: Exp -> Context -> (Context, Context)
+splitFree p = Context.split channels (freeChannels p)
 

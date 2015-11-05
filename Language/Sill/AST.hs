@@ -12,6 +12,7 @@ module Language.Sill.AST
   , Type (..)
   , Exp (..)
   , Ident (..)
+  , Constructer (..)
   , Channel (..)
   , Label (..)
   , Branch (..)

@@ -13,6 +13,7 @@ module Language.Sill.Desugaring.Syntax
   , Type (..)
   , Exp (..)
   , Ident (..)
+  , Constructer (..)
   , Channel (..)
   , Label (..)
   , Branch (..)
@@ -63,6 +64,8 @@ data Exp annot = EFwdProv annot (Channel annot)
 
 data Ident annot = Ident annot String
 
+data Constructer annot = Constructer annot String
+
 data Channel annot = Channel annot String
 
 data Label annot = Label annot String
@@ -90,6 +93,9 @@ branchLookup lab = lookup lab . map branchUnpack
 instance Eq (Ident annot) where
   (==) = (==) `on` identName
 
+instance Eq (Constructer annot) where
+  (==) = (==) `on` constructorName
+
 instance Eq (Channel annot) where
   (==) = (==) `on` channelName
 
@@ -98,6 +104,9 @@ instance Eq (Label annot) where
 
 instance Ord (Ident annot) where
   compare = compare `on` identName
+
+instance Ord (Constructer annot) where
+  compare = compare `on` constructorName
 
 instance Ord (Channel annot) where
   compare = compare `on` channelName
@@ -108,6 +117,9 @@ instance Ord (Label annot) where
 
 identName :: Ident annot -> String
 identName (Ident _ n) = n
+
+constructorName :: Constructer annot -> String
+constructorName (Constructer _ n) = n
 
 channelName :: Channel annot -> String
 channelName (Channel _ n) = n
@@ -157,14 +169,14 @@ instance Annotated Exp where
 instance Annotated Ident where
   annot (Ident annot _) = annot
 
+instance Annotated Constructer where
+  annot (Constructer annot _) = annot
 
 instance Annotated Channel where
   annot (Channel annot _) = annot
 
-
 instance Annotated Label where
   annot (Label annot _) = annot
-
 
 instance Annotated (Branch t) where
   annot (Branch annot _ _) = annot
@@ -229,6 +241,9 @@ instance Pretty (Exp annot) where
 instance Pretty (Ident annot) where
   pPrint (Ident _ ident) = text ident
 
+instance Pretty (Constructer annot) where
+  pPrint (Constructer _ con) = text con
+
 instance Pretty (Channel annot) where
   pPrint (Channel _ c) = text c
 
@@ -262,6 +277,9 @@ instance Show (Exp annot) where
   show = prettyShow
 
 instance Show (Ident annot) where
+  show = prettyShow
+
+instance Show (Constructer annot) where
   show = prettyShow
 
 instance Show (Channel annot) where

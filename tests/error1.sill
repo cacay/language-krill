@@ -1,4 +1,5 @@
-{- Check multiple definitions -}
+-- test error
+{- Multiple definitions is an error -}
 module Main where
     main : 1
     `c <- main = close `c

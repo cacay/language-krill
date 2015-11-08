@@ -1,0 +1,18 @@
+-- test error
+module Main where
+
+  simple : 1 -o 1
+  `c <- simple = close `c
+
+  type A = 1 -o 1
+  type B = 1 -o 1 -o 1
+
+  order : ((A -o A) * 1 and B * 1) -o (A -o 1 or B -o 1) -o 1
+  `e <- order = do
+    `c <- recv `e
+    `d <- recv `e
+    `x <- recv `c
+    wait `c
+    send `d `x
+    wait `d
+    close `e

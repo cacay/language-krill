@@ -1,3 +1,0 @@
-{- Check missing type signatures -}
-module Main where
-    `c <- main = close `c

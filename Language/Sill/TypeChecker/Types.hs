@@ -2,7 +2,7 @@
 -----------------------------------------------------------------------------
 -- |
 -- Module      : Language.Sill.TypeChecker.Types
--- Description : Types used internally by the type-checker
+-- Description : Type representation used internally by the type-checker
 -- Maintainer  : coskuacay@gmail.com
 -- Stability   : experimental
 --
@@ -20,7 +20,7 @@ import Text.PrettyPrint
 import Text.PrettyPrint.HughesPJClass (Pretty (..), prettyShow)
 
 import qualified Language.Sill.AST as Ast
-import Language.Sill.Parser.Annotated
+import Language.Sill.Parser.Annotated (Annotated (..))
 
 
 data Base annot = TUnit annot
@@ -31,6 +31,7 @@ data Base annot = TUnit annot
 
 
 data Property annot = TBase (Base annot)
+                    | TVar annot (Ast.Constructor annot)
                     | TIntersect annot (Property annot) (Property annot)
                     | TUnion annot (Property annot) (Property annot)
 
@@ -40,6 +41,7 @@ data Property annot = TBase (Base annot)
 --------------------------------------------------------------------------}
 
 into :: Ast.Type annot -> Property annot
+into (Ast.TVar annot con) = TVar annot con
 into (Ast.TUnit annot) = TBase (TUnit annot)
 into (Ast.TProduct annot a b) = TBase $ TProduct annot (into a) (into b)
 into (Ast.TArrow annot a b) = TBase $ TArrow annot (into a) (into b)
@@ -51,6 +53,7 @@ into (Ast.TIntersect annot a b) = TIntersect annot (into a) (into b)
 into (Ast.TUnion annot a b) = TUnion annot (into a) (into b)
 
 out :: Property annot -> Ast.Type annot
+out (TVar annot con) = Ast.TVar annot con
 out (TIntersect annot a b) = Ast.TIntersect annot (out a) (out b)
 out (TUnion annot a b) = Ast.TUnion annot (out a) (out b)
 out (TBase b) = outBase b
@@ -77,6 +80,7 @@ instance Annotated Base where
   annot (TExternal annot _) = annot
 
 instance Annotated Property where
+  annot (TVar annot _) = annot
   annot (TBase b) = annot b
   annot (TIntersect annot _ _) = annot
   annot (TUnion annot _ _) = annot
@@ -94,6 +98,7 @@ instance Pretty (Property annot) where
 
 instance Pretty (Ast.Branch Property annot) where
   pPrint (Ast.Branch annot lab t) = pPrint (Ast.Branch annot lab $ out t)
+
 
 {--------------------------------------------------------------------------
   Showing

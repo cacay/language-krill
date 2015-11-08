@@ -1,0 +1,18 @@
+-- test success
+{- Test that the type-checker tries all possible intersection
+   and union rules and does not commit to one branch.
+-}
+module Main where
+  type A = 1 -o 1
+  type B = 1 -o 1 -o 1
+
+  {- Counter-example to the simply focused type-checker -}
+  order : (A * 1 and B * 1) -o (A -o 1 or B -o 1) -o 1
+  `e <- order = do
+    `c <- recv `e
+    `d <- recv `e
+    `x <- recv `c
+    wait `c
+    send `d `x
+    wait `d
+    close `e

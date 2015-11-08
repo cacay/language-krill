@@ -1,6 +1,0 @@
-{- Try to set layout to 0 -}
-
-  module Main where
-
-    main : 1
-    `c <- main = close `c

@@ -1,19 +1,33 @@
--- All cases in this file should fail
+-- test success
+{- Test internal and external choice subtyping -}
 module Main where
 
-  simple : 1 -o 1
-  `c <- simple = close `c
+  -- External choice can offer more branches
+  external : &{term : 1, product : 1 * 1}
+  `c <- external = case `c of
+    term -> close `c
+    product -> do
+      send `c (`d <- close `d)
+      close `c
+    unused -> close `c
+    nonsense -> do
+      -- Note that this branch does not even type-check
+      `d <- recv `c -- Linear channel `d is not used
+      close `c
 
-  -- type A = 1 -o 1
-  -- type B = 1
-  order : ((1 -o 1 -o 1) * 1 and 1 * 1)
-       -o ((1 -o 1) -o 1 or 1 -o 1)
-       -o 1
-  `e <- order = do
-    `c <- recv `e
-    `d <- recv `e
-    `x <- recv `c
-    wait `c
-    send `d `x
-    wait `d
-    close `e
+
+  -- Internal choice on the left can handle more branches
+  internal : +{term : 1, product : 1 * 1} -o 1
+  `c <- internal = do
+    `d <- recv `c
+    case `d of
+      term -> do wait `d; close `c
+      product -> do
+        `e <- recv `d
+        wait `d
+        wait `e
+        close `c
+      impossible ->
+        -- Note that this branch does not even type-check
+        close `c   -- `d is still open
+

@@ -1,5 +1,5 @@
-{- Tests for empty cases -}
-
+-- test success
+{- Empty choices are OK -}
 module Main where
 
   external : &{}

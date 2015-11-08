@@ -38,7 +38,8 @@ import Text.PrettyPrint.HughesPJClass (Pretty (..))
 import Language.Sill.Monad.Compiler
 import qualified Language.Sill.Desugaring.Syntax as Dst
 import qualified Language.Sill.Parser.Syntax as Src
-import Language.Sill.Parser.Annotated
+import Language.Sill.Parser.Annotated (Annotated (..))
+import Language.Sill.Parser.Named (Named (..))
 import Language.Sill.Parser.Location
 
 import Language.Sill.Utility.Pretty
@@ -59,8 +60,8 @@ desugarFile (Src.File annot ms) =
 -- | Desugar a module
 desugarModule :: Src.Module SrcSpan -> Compiler (Dst.Module SrcSpan)
 desugarModule (Src.Module annot name decls) = do
-  decls' <- desugarDeclarations decls
-  return $ Dst.Module annot (desugarIdent name) decls'
+  (typedefs, functions) <- desugarDeclarations decls
+  return $ Dst.Module annot (desugarIdent name) typedefs functions
 
 
 {--------------------------------------------------------------------------
@@ -71,24 +72,38 @@ desugarModule (Src.Module annot name decls) = do
    data types to do so.
 -}
 
+data TypeDef annot = TypeDef annot (Src.Constructor annot) (Src.Type annot)
+
 data TypeSig annot = TypeSig annot (Src.Ident annot) (Src.Type annot)
 
 data FunClause annot =
   FunClause annot (Src.Channel annot) (Src.Ident annot) (Src.Exp annot)
 
 
-sigId :: TypeSig SrcSpan -> String
-sigId (TypeSig _ (Src.Ident _ id) _) = id
-
-clauseId :: FunClause SrcSpan -> String
-clauseId (FunClause _ _ (Src.Ident _ id) _) = id
-
+instance Annotated TypeDef where
+  annot (TypeDef annot _ _) = annot
 
 instance Annotated TypeSig where
   annot (TypeSig annot _ _) = annot
 
 instance Annotated FunClause where
   annot (FunClause annot _ _ _) = annot
+
+
+instance Named (TypeDef annot) where
+  name (TypeDef _ con _) = name con
+
+instance Named (TypeSig annot) where
+  name (TypeSig _ ident _) = name ident
+
+instance Named (FunClause annot) where
+  name (FunClause _ _ ident _) = name ident
+
+
+instance Pretty (TypeDef SrcSpan) where
+  pPrint (TypeDef annot con t) =
+    text "Defined at" <+> pPrint annot <> colon
+    $$ pPrint (Src.TypeDef annot con t)
 
 instance Pretty (TypeSig SrcSpan) where
   pPrint (TypeSig annot ident t) =
@@ -104,41 +119,58 @@ instance Pretty (FunClause SrcSpan) where
   Internal functions
 --------------------------------------------------------------------------}
 
-desugarDeclarations :: [Src.Declaration SrcSpan] -> Compiler [Dst.Declaration SrcSpan]
+desugarDeclarations :: [Src.Declaration SrcSpan]
+                    -> Compiler ([Dst.TypeDef SrcSpan], [Dst.Function SrcSpan])
 desugarDeclarations decls = do
   runAll_
     [ runAll_ $ map checkDefined sigs
     , runAll_ $ map checkSignature clauses
-    , checkDuplicatesOn sigId
+    , checkDuplicatesOn name
+        (\id -> text "Multiple definitions given for the type" <+> text id)
+        typedefs
+    , checkDuplicatesOn name
         (\id -> text "Multiple type signatures given for" <+> text id)
         sigs
-    , checkDuplicatesOn clauseId
+    , checkDuplicatesOn name
         (\id -> text "Multiple clauses given for" <+> text id)
         clauses
     ]
+  typedefs' <- desugarTypeDefs typedefs
   ctx <- desugarTypeSigs sigs
-  desugarFunClauses ctx clauses
+  funcs <- desugarFunClauses ctx clauses
+  return (typedefs', funcs)
   where
+    typedefs = [TypeDef annot con t | Src.TypeDef annot con t <- decls]
     sigs = [TypeSig annot id t | Src.TypeSig annot id t <- decls]
     clauses = [FunClause annot c id e | Src.FunClause annot c id e <- decls]
 
     -- Set of defined function names
-    clauseIdSet = Set.fromList $ map clauseId clauses
+    clauseIdSet = Set.fromList $ map name clauses
     -- Set of declared type signatures
-    sigIdSet = Set.fromList $ map sigId sigs
+    sigIdSet = Set.fromList $ map name sigs
 
     -- Check that the type signature has matching clauses
     checkDefined :: TypeSig SrcSpan -> Compiler ()
     checkDefined sig@(TypeSig annot ident _) =
-      unless (Set.member (sigId sig) clauseIdSet) $ compilerError annot
+      unless (Set.member (name sig) clauseIdSet) $ compilerError annot
         (text "No clauses given for" <+> pPrint ident <> period)
 
     -- Check that the clause has a matching type signature
     checkSignature :: FunClause SrcSpan -> Compiler ()
     checkSignature clause@(FunClause annot _ ident _) =
-      unless (Set.member (clauseId clause) sigIdSet) $ compilerError annot
+      unless (Set.member (name clause) sigIdSet) $ compilerError annot
         (text "No type signature given for" <+> pPrint ident <> period)
 
+
+-- | Desugar type definitions
+desugarTypeDefs :: [TypeDef SrcSpan] -> Compiler [Dst.TypeDef SrcSpan]
+desugarTypeDefs = runAll . map desugarTypeDef
+  where
+    desugarTypeDef :: TypeDef SrcSpan -> Compiler (Dst.TypeDef SrcSpan)
+    desugarTypeDef def@(TypeDef annot con t) = do
+      t' <- desugarType t `inContext` makeCompilerContext (Just annot)
+              empty (text "In the definition of" <+> pPrint con)
+      return $ Dst.TypeDef annot (desugarConstructor con) t'
 
 -- | Desugar type signatures.
 desugarTypeSigs :: [TypeSig SrcSpan] -> Compiler Context
@@ -148,23 +180,24 @@ desugarTypeSigs = liftM Map.fromList . runAll . map desugarTypeSig
     desugarTypeSig sig@(TypeSig annot ident t) = do
      t' <- desugarType t `inContext` makeCompilerContext (Just annot)
              empty (text "In the signature for" <+> pPrint ident)
-     return (sigId sig, makeLoc annot t')
+     return (name sig, makeLoc annot t')
 
--- | Desugar clauses and attaches type signatures. The context _must_
+-- | Desugar clauses and attaches type signatures. The context __must__
 -- contain type signatures for all defined functions.
-desugarFunClauses :: Context -> [FunClause SrcSpan] -> Compiler [Dst.Declaration SrcSpan]
+desugarFunClauses :: Context -> [FunClause SrcSpan] -> Compiler [Dst.Function SrcSpan]
 desugarFunClauses ctx clauses = runAll $ map desugarFunClause clauses
   where
-    desugarFunClause :: FunClause SrcSpan -> Compiler (Dst.Declaration SrcSpan)
+    desugarFunClause :: FunClause SrcSpan -> Compiler (Dst.Function SrcSpan)
     desugarFunClause clause@(FunClause annot c ident e) = do
-      let t = ctx Map.! clauseId clause
+      let t = ctx Map.! name clause
       e' <- desugarExp c e `inContext` makeCompilerContext (Just annot)
               empty (text "In the definition of" <+> pPrint ident)
-      return $ Dst.Declaration annot (desugarIdent ident) (unLoc t) e'
+      return $ Dst.Function annot (desugarIdent ident) (unLoc t) e'
 
 
 -- | Desugar a type
 desugarType :: Src.Type SrcSpan -> Compiler (Dst.Type SrcSpan)
+desugarType (Src.TVar annot con) = return $ Dst.TVar annot (desugarConstructor con)
 desugarType (Src.TUnit annot) = return $ Dst.TUnit annot
 desugarType (Src.TProduct annot a b) =
   liftM2 (Dst.TProduct annot) (desugarType a) (desugarType b)
@@ -256,6 +289,9 @@ desugarExp c (Src.Exp annot es) = do
 
 desugarIdent :: Src.Ident annot -> Dst.Ident annot
 desugarIdent (Src.Ident annot ident) = Dst.Ident annot ident
+
+desugarConstructor :: Src.Constructor annot -> Dst.Constructor annot
+desugarConstructor (Src.Constructor annot con) = Dst.Constructor annot con
 
 desugarChannel :: Src.Channel annot -> Dst.Channel annot
 desugarChannel (Src.Channel annot c) = Dst.Channel annot c

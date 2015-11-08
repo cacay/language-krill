@@ -1,20 +1,21 @@
-
+-- test success
+{- Tests for cases -}
 module Main where
 
-  simple : 1
-  `c <- simple = close `c
+  external : &{term : 1, product : 1 * 1}
+  `c <- external = case `c of
+    term -> close `c
+    product -> do
+      send `c (`d <- close `d)
+      close `c
 
-  {- Counter-example to the simply focused type-checker -}
-  -- type A = 1 -o 1
-  -- type B = 1
-  order : ((1 -o 1) * 1 and 1 * 1)
-       -o ((1 -o 1) -o 1 or 1 -o 1)
-       -o 1
-  `e <- order = do
-    `c <- recv `e
-    `d <- recv `e
-    `x <- recv `c
-    wait `c
-    send `d `x
-    wait `d
-    close `e
+  internal : +{term : 1, product : 1 * 1}
+  `c <- internal = do
+    `c.term
+    close `c
+
+  internal2 : +{term : 1, product : 1 * 1}
+  `c <- internal2 = do
+    `c.product
+    send `c (`d <- close `d)
+    close `c

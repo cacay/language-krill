@@ -9,11 +9,12 @@
 module Language.Sill.Desugaring.Syntax
   ( File (..)
   , Module (..)
-  , Declaration (..)
+  , TypeDef (..)
+  , Function (..)
   , Type (..)
   , Exp (..)
   , Ident (..)
-  , Constructer (..)
+  , Constructor (..)
   , Channel (..)
   , Label (..)
   , Branch (..)
@@ -28,19 +29,23 @@ import Data.Function (on)
 import Text.PrettyPrint
 import Text.PrettyPrint.HughesPJClass (Pretty (..), prettyShow)
 
-import Language.Sill.Parser.Annotated
+import Language.Sill.Parser.Annotated (Annotated (..))
+import Language.Sill.Parser.Named (Named (..))
 
 import Language.Sill.Utility.Pretty
 
 
 data File annot = File annot [Module annot]
 
-data Module annot = Module annot (Ident annot) [Declaration annot]
+data Module annot = Module annot (Ident annot) [TypeDef annot] [Function annot]
 
-data Declaration annot = Declaration annot (Ident annot) (Type annot) (Exp annot)
+data TypeDef annot = TypeDef annot (Constructor annot) (Type annot)
+
+data Function annot = Function annot (Ident annot) (Type annot) (Exp annot)
 
 
-data Type annot = TUnit annot
+data Type annot = TVar annot (Constructor annot)
+                | TUnit annot
                 | TProduct annot (Type annot) (Type annot)
                 | TArrow annot (Type annot) (Type annot)
                 | TInternal annot [Branch Type annot]
@@ -64,7 +69,7 @@ data Exp annot = EFwdProv annot (Channel annot)
 
 data Ident annot = Ident annot String
 
-data Constructer annot = Constructer annot String
+data Constructor annot = Constructor annot String
 
 data Channel annot = Channel annot String
 
@@ -91,41 +96,28 @@ branchLookup lab = lookup lab . map branchUnpack
 --------------------------------------------------------------------------}
 
 instance Eq (Ident annot) where
-  (==) = (==) `on` identName
+  (==) = (==) `on` name
 
-instance Eq (Constructer annot) where
-  (==) = (==) `on` constructorName
+instance Eq (Constructor annot) where
+  (==) = (==) `on` name
 
 instance Eq (Channel annot) where
-  (==) = (==) `on` channelName
+  (==) = (==) `on` name
 
 instance Eq (Label annot) where
-  (==) = (==) `on` labelName
+  (==) = (==) `on` name
 
 instance Ord (Ident annot) where
-  compare = compare `on` identName
+  compare = compare `on` name
 
-instance Ord (Constructer annot) where
-  compare = compare `on` constructorName
+instance Ord (Constructor annot) where
+  compare = compare `on` name
 
 instance Ord (Channel annot) where
-  compare = compare `on` channelName
+  compare = compare `on` name
 
 instance Ord (Label annot) where
-  compare = compare `on` labelName
-
-
-identName :: Ident annot -> String
-identName (Ident _ n) = n
-
-constructorName :: Constructer annot -> String
-constructorName (Constructer _ n) = n
-
-channelName :: Channel annot -> String
-channelName (Channel _ n) = n
-
-labelName :: Label annot -> String
-labelName (Label _ n) = n
+  compare = compare `on` name
 
 
 {--------------------------------------------------------------------------
@@ -136,13 +128,17 @@ instance Annotated File where
   annot (File annot _) = annot
 
 instance Annotated Module where
-  annot (Module annot _ _) = annot
+  annot (Module annot _ _ _) = annot
 
-instance Annotated Declaration where
-  annot (Declaration annot _ _ _) = annot
+instance Annotated TypeDef where
+  annot (TypeDef annot _ _) = annot
+
+instance Annotated Function where
+  annot (Function annot _ _ _) = annot
 
 
 instance Annotated Type where
+  annot (TVar annot _) = annot
   annot (TUnit annot) = annot
   annot (TProduct annot _ _) = annot
   annot (TArrow annot _ _) = annot
@@ -169,8 +165,8 @@ instance Annotated Exp where
 instance Annotated Ident where
   annot (Ident annot _) = annot
 
-instance Annotated Constructer where
-  annot (Constructer annot _) = annot
+instance Annotated Constructor where
+  annot (Constructor annot _) = annot
 
 instance Annotated Channel where
   annot (Channel annot _) = annot
@@ -180,6 +176,33 @@ instance Annotated Label where
 
 instance Annotated (Branch t) where
   annot (Branch annot _ _) = annot
+
+
+{--------------------------------------------------------------------------
+  Names
+--------------------------------------------------------------------------}
+
+instance Named (Module annot) where
+  name (Module _ ident _ _) = name ident
+
+instance Named (TypeDef annot) where
+  name (TypeDef _ con _) = name con
+
+instance Named (Function annot) where
+  name (Function _ ident _ _) = name ident
+
+
+instance Named (Ident annot) where
+  name (Ident _ n) = n
+
+instance Named (Constructor annot) where
+  name (Constructor _ n) = n
+
+instance Named (Channel annot) where
+  name (Channel _ n) = n
+
+instance Named (Label annot) where
+  name (Label _ n) = n
 
 
 {--------------------------------------------------------------------------
@@ -194,16 +217,23 @@ instance Pretty (File annot) where
   pPrint (File _ ms) = vcat (punctuate nl $ map pPrint ms)
 
 instance Pretty (Module annot) where
-  pPrint (Module _ name decls) = text "module" <+> pPrint name <+> text "where"
-    $$ nest indentation (vcat $ punctuate nl $ map pPrint decls)
+  pPrint (Module _ name typedefs funcs) =
+    text "module" <+> pPrint name <+> text "where"
+    $$ nest indentation (vcat $ map pPrint typedefs)
+    $$ nl $$ nest indentation (vcat $ punctuate nl $ map pPrint funcs)
 
-instance Pretty (Declaration annot) where
-  pPrint (Declaration _ ident t e) = pPrint ident <+> colon <+> pPrint t
+instance Pretty (TypeDef annot) where
+  pPrint (TypeDef _ con t) =
+    text "type" <+> pPrint con <+> text "=" <+> pPrint t
+
+instance Pretty (Function annot) where
+  pPrint (Function _ ident t e) = pPrint ident <+> colon <+> pPrint t
     $$ pPrint ident <+> text "=" <+> pPrint e
 
 
 -- TODO: better parens
 instance Pretty (Type annot) where
+  pPrint (TVar _ con) = pPrint con
   pPrint (TUnit _) = text "1"
   pPrint (TProduct _ a b) = parens (pPrint a <+> text "*" <+> pPrint b)
   pPrint (TArrow _ a b) = parens (pPrint a <+> lolli <+> pPrint b)
@@ -241,8 +271,8 @@ instance Pretty (Exp annot) where
 instance Pretty (Ident annot) where
   pPrint (Ident _ ident) = text ident
 
-instance Pretty (Constructer annot) where
-  pPrint (Constructer _ con) = text con
+instance Pretty (Constructor annot) where
+  pPrint (Constructor _ con) = text con
 
 instance Pretty (Channel annot) where
   pPrint (Channel _ c) = text c
@@ -267,7 +297,10 @@ instance Show (File annot) where
 instance Show (Module annot) where
   show = prettyShow
 
-instance Show (Declaration annot) where
+instance Show (TypeDef annot) where
+  show = prettyShow
+
+instance Show (Function annot) where
   show = prettyShow
 
 instance Show (Type annot) where
@@ -279,7 +312,7 @@ instance Show (Exp annot) where
 instance Show (Ident annot) where
   show = prettyShow
 
-instance Show (Constructer annot) where
+instance Show (Constructor annot) where
   show = prettyShow
 
 instance Show (Channel annot) where

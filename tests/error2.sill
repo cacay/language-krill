@@ -1,0 +1,4 @@
+-- test error
+{- All definitions must have a type signature -}
+module Main where
+    `c <- main = close `c

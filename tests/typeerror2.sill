@@ -1,0 +1,10 @@
+-- test error
+{- Non-contractive types -}
+module Main where
+
+  type Loop = Loop
+
+  type MutualA = MutualB
+
+  type MutualB = MutualA
+

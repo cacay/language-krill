@@ -1,4 +1,4 @@
-{-# Language GeneralizedNewtypeDeriving #-}
+{-# Language UndecidableInstances, FlexibleInstances, GeneralizedNewtypeDeriving #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      : Language.Sill.Monad.Compiler
@@ -29,6 +29,8 @@ module Language.Sill.Monad.Compiler
 
 import Control.Applicative
 import Control.Monad.Except
+import Control.Monad.Reader
+import Control.Monad.State
 
 import Data.Functor.Identity
 import Data.Either (partitionEithers)
@@ -62,6 +64,24 @@ newtype CompilerT m a = CompilerT { unCompilerT :: ExceptT CompilerError m a }
 -- | Extract the result of a CompilerT computation
 runCompilerT :: CompilerT m a -> m (Either CompilerError a)
 runCompilerT = runExceptT . unCompilerT
+
+
+----------------------------------------------------------------------------
+-- * Instances
+----------------------------------------------------------------------------
+
+-- All of these instances need UndecidableInstances, since they do not
+-- satisfy the coverage condition.
+
+instance MonadState s m => MonadState s (CompilerT m) where
+  get = lift get
+  put = lift . put
+  state = lift . state
+
+instance MonadReader s m => MonadReader s (CompilerT m) where
+  ask = lift ask
+  local f = (lift . local f . return =<<) -- TODO: is this right?
+  reader = lift . reader
 
 
 ----------------------------------------------------------------------------

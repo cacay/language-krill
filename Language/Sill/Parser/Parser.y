@@ -234,6 +234,10 @@ Qualified : constructor  { Ident (location $1) $ (\(Token.TConstructor id) -> id
 Ident :: { Ident annot }
 Ident : ident  { Ident (location $1) $ (\(Token.TIdent id) -> id) (token $1) }
 
+Constructor :: { Constructor annot }
+Constructor : constructor
+  { Constructor (location $1) $ (\(Token.TConstructor id) -> id) (token $1) }
+
 Label :: { Label annot }
 Label : ident  { Label (location $1) $ (\(Token.TIdent id) -> id) (token $1) }
 
@@ -246,7 +250,8 @@ Channel : channel  { Channel (location $1) $ (\(Token.TChannel id) -> id) (token
 --------------------------------------------------------------------------}
 
 Type :: { Type SrcSpan }
-Type : one                                { TUnit $1 }
+Type : Constructor                        { TVar (location $1) $1 }
+     | one                                { TUnit $1 }
      | Type '*' Type                      { TProduct (mergeLocated $1 $3) $1 $3 }
      | '+' '{' ListSep(Field, ',') '}'    { TInternal (mergeLocated $1 $4) $3 }
      | Type '-o' Type                     { TArrow (mergeLocated $1 $3) $1 $3 }
@@ -292,16 +297,18 @@ Declarations :: { Loc [Declaration SrcSpan] }
 Declarations : Block(Declaration) { $1 }
 
 Declaration :: { Declaration SrcSpan }
-Declaration : TypeSig       { $1 }
+Declaration : TypeDef       { $1 }
+            | TypeSig       { $1 }
             | FunClause     { $1 }
             -- | Data       { $1 }
-            -- | Type       { $1 }
             -- | Infix      { $1 }
 
 
+TypeDef :: { Declaration SrcSpan }
+TypeDef : type Constructor '=' Type { TypeDef (mergeLocated $1 $4) $2 $4 }
+
 TypeSig :: { Declaration SrcSpan }
 TypeSig : Ident ':' Type    { TypeSig (mergeLocated $1 $3) $1 $3 }
-
 
 -- TODO: Allow arguments
 FunClause :: { Declaration SrcSpan }

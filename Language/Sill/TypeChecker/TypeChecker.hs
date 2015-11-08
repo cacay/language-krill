@@ -13,6 +13,9 @@ module Language.Sill.TypeChecker.TypeChecker
   where
 
 import Control.Monad
+import Control.Monad.Except (throwError)
+import Control.Monad.Reader
+
 import Data.Maybe (mapMaybe)
 import qualified Data.Map.Strict as Map
 
@@ -26,8 +29,9 @@ import qualified Language.Sill.AST as Ast
 
 import Language.Sill.TypeChecker.Context (Context, typedefs, functions, channels)
 import qualified Language.Sill.TypeChecker.Context as Context
+import Language.Sill.TypeChecker.Contractivity (contractiveModule)
 import Language.Sill.TypeChecker.FreeVariables (freeChannels)
-import Language.Sill.TypeChecker.Subtyping (subBase)
+import Language.Sill.TypeChecker.Subtyping (subBase, TypeDefs)
 import qualified Language.Sill.TypeChecker.Types as Types
 
 import Language.Sill.Utility.Pretty (indentation, period)
@@ -43,7 +47,7 @@ type Property = Types.Property SrcSpan
 type Exp = Ast.Exp SrcSpan
 
 type Ident = Ast.Ident SrcSpan
-type Constructer = Ast.Constructer SrcSpan
+type Constructor = Ast.Constructor SrcSpan
 type Channel = Ast.Channel SrcSpan
 
 
@@ -51,7 +55,12 @@ type Channel = Ast.Channel SrcSpan
 -- * Context
 ----------------------------------------------------------------------------
 
+type TypeContext = ( Map.Map (Ast.Constructor SrcSpan) Property
+                   , Map.Map (Ast.Ident SrcSpan) Property
+                   )
 type PropContext = [(Channel, Property)]
+
+type Result = CompilerT (Reader TypeContext)
 
 
 {--------------------------------------------------------------------------
@@ -62,12 +71,28 @@ checkFile :: Ast.File SrcSpan -> Compiler ()
 checkFile (Ast.File _ modules) = runAll_ (map checkModule modules)
 
 checkModule :: Ast.Module SrcSpan -> Compiler ()
-checkModule (Ast.Module _ _ decls) =
-  runAll_ (map (checkDeclaration Context.empty) decls)
+checkModule mod@(Ast.Module _ _ typedefs funcs) = do
+  contractiveModule mod
+  run (Map.fromList $ map getTypeDef typedefs, Map.fromList $ map getFunSig funcs)
+    $ runAll_ (map (checkFunction Context.empty) funcs)
+  where
+    getTypeDef :: Ast.TypeDef SrcSpan -> (Ast.Constructor SrcSpan, Property)
+    getTypeDef (Ast.TypeDef _ con t) = (con, Types.into t)
+
+    getFunSig :: Ast.Function SrcSpan -> (Ast.Ident SrcSpan, Property)
+    getFunSig (Ast.Function _ id t _) = (id, Types.into t)
 
 
-checkDeclaration :: Context -> Ast.Declaration SrcSpan -> Compiler ()
-checkDeclaration ctx (Ast.Declaration annot ident t p) = do
+-- | Unfold the 'Reader' monad to get a 'Compiler' monad
+run :: TypeContext -> Result a -> Compiler a
+run ctx m =
+  case runReader (runCompilerT m) ctx of
+    Left e -> throwError e
+    Right a -> return a
+
+
+checkFunction :: Context -> Ast.Function SrcSpan -> Result ()
+checkFunction ctx (Ast.Function annot ident t p) = do
   let m = decomposeTarget (ctx, []) p [] [Types.into t]
   m `inContext` makeCompilerContext (Just annot)
     (text "Type errors in the definition of" <+> pPrint ident <> colon)
@@ -78,7 +103,7 @@ checkDeclaration ctx (Ast.Declaration annot ident t p) = do
   Actual type-checker
 --------------------------------------------------------------------------}
 
-decomposeTarget :: (Context, PropContext) -> Exp -> [Base] -> [Property] -> Compiler ()
+decomposeTarget :: (Context, PropContext) -> Exp -> [Base] -> [Property] -> Result ()
 decomposeTarget (ctx, pCtx) e bases [] = decomposeContext ctx pCtx e bases
 decomposeTarget ctx e bases (p : ps) = case p of
   Types.TBase base -> decomposeTarget ctx e (base : bases) ps
@@ -87,9 +112,12 @@ decomposeTarget ctx e bases (p : ps) = case p of
     , decomposeTarget ctx e bases (p2 : ps)
     ]
   Types.TUnion annot p1 p2 -> decomposeTarget ctx e bases (p1 : p2 : ps)
+  Types.TVar annot p -> do
+    p' <- unfold p
+    decomposeTarget ctx e bases (p' : ps)
 
 
-decomposeContext :: Context -> PropContext -> Exp -> [Base] -> Compiler ()
+decomposeContext :: Context -> PropContext -> Exp -> [Base] -> Result ()
 decomposeContext ctx [] e ts = checkBase ctx e ts
 decomposeContext ctx ((d, p) : ps) e ts = case p of
   Types.TBase base -> decomposeContext (Context.add channels d base ctx) ps e ts
@@ -99,15 +127,25 @@ decomposeContext ctx ((d, p) : ps) e ts = case p of
     [ decomposeContext ctx ((d, p1) : ps) e ts
     , decomposeContext ctx ((d, p2) : ps) e ts
     ]
+  Types.TVar annot p -> do
+    p' <- unfold p
+    decomposeContext ctx ((d, p') : ps) e ts
 
 
-checkBase :: Context -> Exp -> [Base] -> Compiler ()
+checkBase :: Context -> Exp -> [Base] -> Result ()
 -- id
 checkBase ctx p@(Ast.EFwdProv _ d) targets = do
   (dtypes, ctx') <- lookupRemove d ctx
   unless (Context.null channels ctx') $
     typeError (text "Unused channels in the context.") ctx p targets
-  runAny_ [subBase dtype target | dtype <- dtypes, target <- targets]
+  typedefs <- asks fst
+  runAny_ [subBaseL typedefs dtype target | dtype <- dtypes, target <- targets]
+  where
+    subBaseL :: TypeDefs -> Base -> Base -> Result ()
+    subBaseL typedefs a b =
+      case runCompiler (subBase typedefs a b) of
+        Left e -> throwError e
+        Right () -> return ()
 -- cut
 checkBase ctx p1@(Ast.ECut _ c p2 t p1') targets = do
   let t' = Types.into t
@@ -166,7 +204,7 @@ checkBase ctx p@(Ast.ECase _ c cases) targets = do
   where
     ctx' = Context.delete channels c ctx
 
-    test :: [Ast.Branch Types.Property SrcSpan] -> Compiler ()
+    test :: [Ast.Branch Types.Property SrcSpan] -> Result ()
     test = checkBranches
       (\p t -> decomposeContext ctx' [(c, t)] p targets)
       (\s -> typeError s ctx p targets)
@@ -196,7 +234,7 @@ checkBase ctx p@(Ast.ECaseProv _ cases) targets = do
     matchError Nothing (text "&{...}") targets ctx p targets
   runAny_ $ map test externals
   where
-    test :: [Ast.Branch Types.Property SrcSpan] -> Compiler ()
+    test :: [Ast.Branch Types.Property SrcSpan] -> Result ()
     test = checkBranches
       (\p t -> decomposeTarget (ctx, []) p [] [t])
       (\s -> typeError s ctx p targets)
@@ -214,16 +252,16 @@ checkBase ctx p@(Ast.ESelect _ c lab p') targets = do
 
 
 -- | Ensure that all branches in the type have a matching case
-checkBranches :: (Exp -> Property -> Compiler ())
-              -> (Doc -> Compiler ())
+checkBranches :: (Exp -> Property -> Result ())
+              -> (Doc -> Result ())
               -> [Ast.Branch Ast.Exp SrcSpan]
               -> [Ast.Branch Types.Property SrcSpan]
-              -> Compiler ()
+              -> Result ()
 checkBranches check error cases branches = runAll_ $ map checkBranch branches
   where
     cases' = Map.fromList $ map Ast.branchUnpack cases
 
-    checkBranch :: Ast.Branch Types.Property SrcSpan -> Compiler ()
+    checkBranch :: Ast.Branch Types.Property SrcSpan -> Result ()
     checkBranch (Ast.Branch _ lab t) | Just p <- Map.lookup lab cases' =
       check p t
     checkBranch br = error (text "No case given for" <+> braces (pPrint br))
@@ -233,7 +271,7 @@ checkBranches check error cases branches = runAll_ $ map checkBranch branches
   Errors
 --------------------------------------------------------------------------}
 
-typeError :: Doc -> Context -> Exp -> [Base] -> Compiler ()
+typeError :: Doc -> Context -> Exp -> [Base] -> Result ()
 typeError msg ctx e ts = compilerError (location e) $
   vcat [ text "Cannot match the expected type" <+> pPrint t <> colon
        , if isEmpty msg then empty else text "Error:" <+> msg
@@ -250,7 +288,7 @@ matchError :: Maybe Channel
            -> Context
            -> Exp
            -> [Base]
-           -> Compiler ()
+           -> Result ()
 matchError c expected got ctx e ts = compilerError (location e)
   (vcat [ text "Cannot match the expected structure:"
             <+> channel <+> colon <+> expected <> period
@@ -272,8 +310,27 @@ matchError c expected got ctx e ts = compilerError (location e)
   Context management
 --------------------------------------------------------------------------}
 
+-- | Unfold a type definition
+unfold :: Ast.Constructor SrcSpan -> Result Property
+unfold con = do
+  def <- asks (Map.lookup con . fst)
+  case def of
+    Nothing -> compilerError (location con) $
+      text "Undefined constructor:" <+> pPrint con
+    Just prop -> return prop
+
+-- | Lookup the type signature for a function
+lookupTypeSig :: Ast.Ident SrcSpan -> Result Property
+lookupTypeSig ident = do
+  def <- asks (Map.lookup ident . snd)
+  case def of
+    Nothing -> compilerError (location ident) $
+      text "Undefined function:" <+> pPrint ident
+    Just prop -> return prop
+
+
 -- | Lookup the types for the given channel
-lookupChannel :: Channel -> Context -> Compiler [Base]
+lookupChannel :: Channel -> Context -> Result [Base]
 lookupChannel c ctx = case Context.lookup channels c ctx of
   Nothing -> compilerError (location c) $
     text "Unbound channel" <+> pPrint c <+> text "in the context" <> colon
@@ -281,13 +338,13 @@ lookupChannel c ctx = case Context.lookup channels c ctx of
   Just ts -> return ts
 
 -- | Lookup the types for the given channel and remove them from the context
-lookupRemove :: Channel -> Context -> Compiler ([Base], Context)
+lookupRemove :: Channel -> Context -> Result ([Base], Context)
 lookupRemove c ctx = do
   t <- lookupChannel c ctx
   return (t, Context.delete channels c ctx)
 
 -- | Ensure that the given channel does not occur in the context
-checkFree :: Channel -> Context -> Compiler ()
+checkFree :: Channel -> Context -> Result ()
 checkFree c ctx | Context.member channels c ctx = compilerError (location c) $
   text "Channel binding shadows previously bound channel" <+> pPrint c
     <+> text "in the context:" $$ Context.prettyChannels ctx

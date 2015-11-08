@@ -1,4 +1,5 @@
-{- Check multiple type signatures -}
+-- test error
+{- Multiple type signatures is an error -}
 module Main where
     main : 1
     main : 1

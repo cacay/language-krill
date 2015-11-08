@@ -54,7 +54,7 @@ data Type annot = TVar annot (Constructor annot)
 
 data Exp annot = Exp annot [ExpLine annot]
 
-data ExpLine annot = ECut annot (Channel annot) (Exp annot) (Type annot)
+data ExpLine annot = ECut annot (Channel annot) (Ident annot)
                    | EFwd annot (Channel annot) (Channel annot)
                    | EClose annot (Channel annot)
                    | EWait annot (Channel annot)
@@ -147,7 +147,7 @@ instance Annotated Exp where
   annot (Exp annot _) = annot
 
 instance Annotated ExpLine where
-  annot (ECut annot _ _ _) = annot
+  annot (ECut annot _ _) = annot
   annot (EFwd annot _ _) = annot
   annot (EClose annot _) = annot
   annot (EWait annot _) = annot
@@ -236,8 +236,7 @@ instance Pretty (Exp annot) where
   pPrint (Exp _ es) = vcat (map pPrint es)
 
 instance Pretty (ExpLine annot) where
-  pPrint (ECut _ c e t) =
-    pPrint c <+> leftArrow <+> pPrint e <+> colon <+> pPrint t
+  pPrint (ECut _ c ident) = pPrint c <+> leftArrow <+> pPrint ident
   pPrint (EFwd _ c d) = pPrint c <+> leftArrow <+> pPrint d
   pPrint (EClose _ c) = text "close" <+> pPrint c
   pPrint (EWait _ c) = text "wait" <+> pPrint c

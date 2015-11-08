@@ -268,7 +268,7 @@ Exp : do Block(ExpLine) { Exp (mergeLocated $1 $2) (unLoc $2) }
 
 -- One line of a process expression
 ExpLine :: { ExpLine annot }
-ExpLine : Channel '<-' Exp ':' Type   { ECut (mergeLocated $1 $5) $1 $3 $5 }
+ExpLine : Channel '<-' Ident          { ECut (mergeLocated $1 $3) $1 $3 }
         | Channel '<-' Channel        { EFwd (mergeLocated $1 $3) $1 $3 }
         | close Channel               { EClose (mergeLocated $1 $2) $2 }
         | wait Channel                { EWait (mergeLocated $1 $2) $2 }

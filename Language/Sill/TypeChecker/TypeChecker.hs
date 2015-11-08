@@ -147,12 +147,10 @@ checkBase ctx p@(Ast.EFwdProv _ d) targets = do
         Left e -> throwError e
         Right () -> return ()
 -- cut
-checkBase ctx p1@(Ast.ECut _ c p2 t p1') targets = do
-  let t' = Types.into t
-  let (ctx2, ctx1') = splitFree p2 ctx
-  checkFree c ctx1'
-  decomposeTarget (ctx2, []) p2 [] [t']
-  decomposeContext ctx1' [(c, t')] p1' targets
+checkBase ctx p@(Ast.ECut _ c ident p') targets = do
+  checkFree c ctx
+  t <- lookupTypeSig ident
+  decomposeContext ctx [(c, t)] p' targets
 -- 1R
 checkBase ctx p@(Ast.ECloseProv _) targets = do
   unless (Context.null channels ctx) $

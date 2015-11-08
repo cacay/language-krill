@@ -1,0 +1,25 @@
+-- test success
+{- Test cut -}
+module Main where
+
+  free : 1 -o 1
+  `c <- free = do
+    `d <- recv `c
+    wait `d
+    close `c
+
+
+  main : 1 -o 1 -o 1
+  `c <- main = do
+    `d <- recv `c
+    `e <- recv `c
+
+    `free <- free
+    send `free `d
+    wait `free
+
+    `free <- free
+    send `free `e
+    wait `free
+
+    close `c

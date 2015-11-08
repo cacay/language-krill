@@ -266,10 +266,9 @@ desugarExp c (Src.Exp annot es) = do
       return $ Dst.ERecvProv (mergeLocated annot p) (desugarChannel d) p
     desugarLine (Src.ESelect annot c' lab) p | c == c' =
       return $ Dst.ESelectProv (mergeLocated annot p) (desugarLabel lab) p
-    desugarLine (Src.ECut annot d p1 t) p2 = do
-      p1' <- desugarExp d p1
-      t' <- desugarType t
-      return $ Dst.ECut (mergeLocated annot p2) (desugarChannel d) p1' t' p2
+    desugarLine (Src.ECut annot d ident) p = do
+      let ident' = desugarIdent ident
+      return $ Dst.ECut (mergeLocated annot p) (desugarChannel d) ident' p
     desugarLine (Src.EWait annot d) p =
       return $ Dst.EWait (mergeLocated annot p) (desugarChannel d) p
     desugarLine (Src.ESend annot d (e, p1)) p2 | otherwise = do

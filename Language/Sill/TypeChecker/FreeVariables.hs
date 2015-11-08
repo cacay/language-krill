@@ -27,8 +27,7 @@ freeChannelsSet (ESendProv _ e1 e2 ) =
 freeChannelsSet (ERecvProv _ c e) = Set.delete c (freeChannelsSet e)
 freeChannelsSet (ESelectProv _ _ e) = freeChannelsSet e
 freeChannelsSet (ECaseProv _ brs) = freeBranches brs
-freeChannelsSet (ECut _ c e1 _ e2) =
-  Set.delete c (freeChannelsSet e1 `Set.union` freeChannelsSet e2)
+freeChannelsSet (ECut _ c ident e) = Set.delete c (freeChannelsSet e)
 freeChannelsSet (EWait _ c e) = Set.insert c (freeChannelsSet e)
 freeChannelsSet (ESend _ c e1 e2 ) =
   Set.insert c (freeChannelsSet e1 `Set.union` freeChannelsSet e2)

@@ -59,7 +59,7 @@ data Exp annot = EFwdProv annot (Channel annot)
                | ERecvProv annot (Channel annot) (Exp annot)
                | ESelectProv annot (Label annot) (Exp annot)
                | ECaseProv annot [Branch Exp annot]
-               | ECut annot (Channel annot) (Exp annot) (Type annot) (Exp annot)
+               | ECut annot (Channel annot) (Ident annot) (Exp annot)
                | EWait annot (Channel annot) (Exp annot)
                | ESend annot (Channel annot) (Exp annot) (Exp annot)
                | ERecv annot (Channel annot) (Channel annot) (Exp annot)
@@ -154,7 +154,7 @@ instance Annotated Exp where
   annot (ERecvProv annot _ _) = annot
   annot (ESelectProv annot _ _) = annot
   annot (ECaseProv annot _) = annot
-  annot (ECut annot _ _ _ _) = annot
+  annot (ECut annot _ _ _) = annot
   annot (EWait annot _ _) = annot
   annot (ESend annot _ _ _) = annot
   annot (ERecv annot _ _ _) = annot
@@ -255,8 +255,8 @@ instance Pretty (Exp annot) where
     <> semi $$ pPrint e
   pPrint (ECaseProv _ br) = text "case" <+> wildcard <+> text "of"
     $$ nest indentation (vcat $ map pPrint br)
-  pPrint (ECut _ c e1 t e2) = pPrint c <+> leftArrow <+> parens (pPrint e1
-    <+> colon <+> pPrint t) <> semi $$ pPrint e2
+  pPrint (ECut _ c ident e) = pPrint c <+> leftArrow <+> pPrint ident
+    <> semi $$ pPrint e
   pPrint (EWait _ c e) = text "wait" <+> pPrint c <> semi $$ pPrint e
   pPrint (ESend _ c e1 e2) = text "send" <+> pPrint c <+> parens (
     wildcard <+> leftArrow <+> pPrint e1) <> semi $$ pPrint e2

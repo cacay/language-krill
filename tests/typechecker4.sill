@@ -1,0 +1,12 @@
+-- test success
+{- Test recursive processes -}
+module Main where
+
+  type Forever = 1 * Forever
+
+  main : Forever
+  `c <- main = do
+    send `c (`d <- close `d)
+    `rest <- main
+    `c <- `rest
+

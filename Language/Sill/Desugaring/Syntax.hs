@@ -238,9 +238,9 @@ instance Pretty (Type annot) where
   pPrint (TProduct _ a b) = parens (pPrint a <+> text "*" <+> pPrint b)
   pPrint (TArrow _ a b) = parens (pPrint a <+> lolli <+> pPrint b)
   pPrint (TInternal _ br) =
-    text "+" <> braces (hsep $ punctuate semi $ map pPrint br)
+    text "+" <> braces (hsep $ punctuate comma $ map pPrint br)
   pPrint (TExternal _ br) =
-    text "&" <> braces (hsep $ punctuate semi $ map pPrint br)
+    text "&" <> braces (hsep $ punctuate comma $ map pPrint br)
   pPrint (TIntersect _ a b) = parens (pPrint a <+> text "and" <+> pPrint b)
   pPrint (TUnion _ a b) = parens (pPrint a <+> text "or" <+> pPrint b)
 

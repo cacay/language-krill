@@ -1,0 +1,13 @@
+-- test error
+{- Subtyping -}
+module Main where
+
+  type A = 1 -o 1
+  type B = 1 -o 1 -o 1
+
+  sub1 : A -o 1
+  `c <- sub1 `d = `c <- `d
+
+  sub2 : (A and B) -o 1
+  `c <- sub2 `d = `c <- `d
+

@@ -1,0 +1,47 @@
+-- test success
+{- Test more interesting recursive refinements -}
+
+module BitString where
+  {- eps is the empty string, zero and one append a least significant bit -}
+  type Bits = +{eps : 1, zero : Bits, one : Bits}
+
+
+  -- One way to represent bit strings in standard form is as follows:
+
+  type Std = +{eps : 1} or StdPos
+
+  type StdPos = +{one : +{eps : 1} or StdPos, zero : StdPos}
+
+
+  eps : Bits and Std
+  `c <- eps = do
+    `c.eps
+    close `c
+
+  zero : Bits -o Bits
+  `c <- zero `d = do
+    `c.zero
+    `c <- `d
+
+  one : Bits -o Bits and Std -o Std
+  `c <- one `d = do
+    `c.one
+    `c <- `d
+
+  succ : Std -o Std and {- hypotheses -} StdPos -o StdPos and +{eps : 1} -o StdPos
+  `c <- succ `d =
+    case `d of
+      eps -> do wait `d; `c.one; `c.eps; close `c
+      zero -> do `c.one; `c <- `d
+      one -> do
+        `c.zero
+        `sd <- succ `d
+        `c <- `sd
+
+  {-
+  -- Try forgetting
+  succ1 : Bits -o Bits
+  `c <- succ1 `d = do
+    `s <- succ `d
+    `c <- `s
+  -}

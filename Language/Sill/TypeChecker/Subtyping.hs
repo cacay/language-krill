@@ -42,14 +42,14 @@ type Result = CompilerT (ReaderT TypeDefs (State CoInduction))
 -- | Decide if the base type is a subtype of the other
 subBase :: TypeDefs -> Base SrcSpan -> Base SrcSpan -> Compiler ()
 subBase typedefs a b = run typedefs (subBaseHelper a b)
-  `inContext` makeCompilerContext (Just $ location b)
+  `inContext` makeCompilerContext Nothing
     (pPrint a <+> text "is not a subtype of" <+> pPrint b)
     empty
 
 -- | Decide if the property type is a subtype of the other
 subProperty :: TypeDefs -> Property SrcSpan -> Property SrcSpan -> Compiler ()
 subProperty typedefs a b = run typedefs (subPropertyHelper a b)
-  `inContext` makeCompilerContext (Just $ location b)
+  `inContext` makeCompilerContext Nothing
     (pPrint a <+> text "is not a subtype of" <+> pPrint b)
     empty
 

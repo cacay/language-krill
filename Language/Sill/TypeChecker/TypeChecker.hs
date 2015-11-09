@@ -137,9 +137,11 @@ checkBase :: Context -> Exp -> [Base] -> Result ()
 checkBase ctx p@(Ast.EFwdProv _ d) targets = do
   (dtypes, ctx') <- lookupRemove d ctx
   unless (Context.null channels ctx') $
-    typeError (text "Unused channels in the context.") ctx p targets
+    typeError (text "Unused channels in the context.") ctx' p targets
   typedefs <- asks fst
   runAny_ [subBaseL typedefs dtype target | dtype <- dtypes, target <- targets]
+    `inContext` makeCompilerContext (Just $ location p) empty
+    (text "When checking" <+> pPrint p)
   where
     subBaseL :: TypeDefs -> Base -> Base -> Result ()
     subBaseL typedefs a b =

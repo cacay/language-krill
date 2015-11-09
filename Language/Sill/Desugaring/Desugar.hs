@@ -76,8 +76,8 @@ data TypeDef annot = TypeDef annot (Src.Constructor annot) (Src.Type annot)
 
 data TypeSig annot = TypeSig annot (Src.Ident annot) (Src.Type annot)
 
-data FunClause annot =
-  FunClause annot (Src.Channel annot) (Src.Ident annot) (Src.Exp annot)
+data FunClause annot = FunClause
+  annot (Src.Channel annot) (Src.Ident annot) [Src.Channel annot] (Src.Exp annot)
 
 
 instance Annotated TypeDef where
@@ -87,7 +87,7 @@ instance Annotated TypeSig where
   annot (TypeSig annot _ _) = annot
 
 instance Annotated FunClause where
-  annot (FunClause annot _ _ _) = annot
+  annot (FunClause annot _ _ _ _) = annot
 
 
 instance Named (TypeDef annot) where
@@ -97,7 +97,7 @@ instance Named (TypeSig annot) where
   name (TypeSig _ ident _) = name ident
 
 instance Named (FunClause annot) where
-  name (FunClause _ _ ident _) = name ident
+  name (FunClause _ _ ident _ _) = name ident
 
 
 instance Pretty (TypeDef SrcSpan) where
@@ -110,9 +110,9 @@ instance Pretty (TypeSig SrcSpan) where
     pPrint t <+> parens (text "declared at" <+> pPrint annot)
 
 instance Pretty (FunClause SrcSpan) where
-  pPrint (FunClause annot c ident exp) =
+  pPrint (FunClause annot c ident args exp) =
     text "Defined at" <+> pPrint annot <> colon
-    $$ pPrint (Src.FunClause annot c ident exp)
+    $$ pPrint (Src.FunClause annot c ident args exp)
 
 
 {--------------------------------------------------------------------------
@@ -142,7 +142,7 @@ desugarDeclarations decls = do
   where
     typedefs = [TypeDef annot con t | Src.TypeDef annot con t <- decls]
     sigs = [TypeSig annot id t | Src.TypeSig annot id t <- decls]
-    clauses = [FunClause annot c id e | Src.FunClause annot c id e <- decls]
+    clauses = [FunClause annot c id args e | Src.FunClause annot c id args e <- decls]
 
     -- Set of defined function names
     clauseIdSet = Set.fromList $ map name clauses
@@ -157,7 +157,7 @@ desugarDeclarations decls = do
 
     -- Check that the clause has a matching type signature
     checkSignature :: FunClause SrcSpan -> Compiler ()
-    checkSignature clause@(FunClause annot _ ident _) =
+    checkSignature clause@(FunClause annot _ ident _ _) =
       unless (Set.member (name clause) sigIdSet) $ compilerError annot
         (text "No type signature given for" <+> pPrint ident <> period)
 
@@ -188,11 +188,15 @@ desugarFunClauses :: Context -> [FunClause SrcSpan] -> Compiler [Dst.Function Sr
 desugarFunClauses ctx clauses = runAll $ map desugarFunClause clauses
   where
     desugarFunClause :: FunClause SrcSpan -> Compiler (Dst.Function SrcSpan)
-    desugarFunClause clause@(FunClause annot c ident e) = do
+    desugarFunClause clause@(FunClause annot c ident args e) = do
       let t = ctx Map.! name clause
       e' <- desugarExp c e `inContext` makeCompilerContext (Just annot)
               empty (text "In the definition of" <+> pPrint ident)
-      return $ Dst.Function annot (desugarIdent ident) (unLoc t) e'
+      let withArgs = foldr recvArg e' args
+      return $ Dst.Function annot (desugarIdent ident) (unLoc t) withArgs
+
+    recvArg :: Src.Channel SrcSpan -> Dst.Exp SrcSpan -> Dst.Exp SrcSpan
+    recvArg c e = Dst.ERecvProv (mergeLocated c e) (desugarChannel c) e
 
 
 -- | Desugar a type
@@ -266,9 +270,16 @@ desugarExp c (Src.Exp annot es) = do
       return $ Dst.ERecvProv (mergeLocated annot p) (desugarChannel d) p
     desugarLine (Src.ESelect annot c' lab) p | c == c' =
       return $ Dst.ESelectProv (mergeLocated annot p) (desugarLabel lab) p
-    desugarLine (Src.ECut annot d ident) p = do
-      let ident' = desugarIdent ident
-      return $ Dst.ECut (mergeLocated annot p) (desugarChannel d) ident' p
+    desugarLine (Src.ECut annot d ident args) p = do
+      let withArgs = foldr sendArg p args
+      return $ Dst.ECut (mergeLocated annot p) d' ident' withArgs
+      where
+        d' = desugarChannel d
+        ident' = desugarIdent ident
+
+        sendArg :: Src.Channel SrcSpan -> Dst.Exp SrcSpan -> Dst.Exp SrcSpan
+        sendArg c p = Dst.ESend (mergeLocated c p) d'
+          (Dst.EFwdProv (location c) $ desugarChannel c) p
     desugarLine (Src.EWait annot d) p =
       return $ Dst.EWait (mergeLocated annot p) (desugarChannel d) p
     desugarLine (Src.ESend annot d (e, p1)) p2 | otherwise = do

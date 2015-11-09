@@ -267,8 +267,9 @@ Exp : do Block(ExpLine) { Exp (mergeLocated $1 $2) (unLoc $2) }
     | ExpLine           { Exp (location $1) [$1] }
 
 -- One line of a process expression
+-- TODO: Location for Cut does not include Args
 ExpLine :: { ExpLine annot }
-ExpLine : Channel '<-' Ident          { ECut (mergeLocated $1 $3) $1 $3 }
+ExpLine : Channel '<-' Ident Args     { ECut (mergeLocated $1 $3) $1 $3 $4 }
         | Channel '<-' Channel        { EFwd (mergeLocated $1 $3) $1 $3 }
         | close Channel               { EClose (mergeLocated $1 $2) $2 }
         | wait Channel                { EWait (mergeLocated $1 $2) $2 }
@@ -310,9 +311,13 @@ TypeDef : type Constructor '=' Type { TypeDef (mergeLocated $1 $4) $2 $4 }
 TypeSig :: { Declaration SrcSpan }
 TypeSig : Ident ':' Type    { TypeSig (mergeLocated $1 $3) $1 $3 }
 
--- TODO: Allow arguments
 FunClause :: { Declaration SrcSpan }
-FunClause : Channel '<-' Ident '=' Exp  { FunClause (mergeLocated $1 $5) $1 $3 $5 }
+FunClause : Channel '<-' Ident Args '=' Exp
+            { FunClause (mergeLocated $1 $6) $1 $3 $4 $6 }
+
+
+Args :: { [Channel SrcSpan] }
+Args : List(Channel) { $1 }
 
 
 {--------------------------------------------------------------------------

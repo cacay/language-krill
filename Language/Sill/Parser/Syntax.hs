@@ -39,9 +39,10 @@ data File annot = File annot [Module annot]
 data Module annot = Module annot (Ident annot) [Declaration annot]
 
 
-data Declaration annot = TypeDef annot (Constructor annot) (Type annot)
-                       | TypeSig annot (Ident annot) (Type annot)
-                       | FunClause annot (Channel annot) (Ident annot) (Exp annot)
+data Declaration annot
+  = TypeDef annot (Constructor annot) (Type annot)
+  | TypeSig annot (Ident annot) (Type annot)
+  | FunClause annot (Channel annot) (Ident annot) [Channel annot] (Exp annot)
 
 data Type annot = TVar annot (Constructor annot)
                 | TUnit annot
@@ -54,7 +55,7 @@ data Type annot = TVar annot (Constructor annot)
 
 data Exp annot = Exp annot [ExpLine annot]
 
-data ExpLine annot = ECut annot (Channel annot) (Ident annot)
+data ExpLine annot = ECut annot (Channel annot) (Ident annot) [Channel annot]
                    | EFwd annot (Channel annot) (Channel annot)
                    | EClose annot (Channel annot)
                    | EWait annot (Channel annot)
@@ -131,7 +132,7 @@ instance Annotated Module where
 instance Annotated Declaration where
   annot (TypeDef annot _ _) = annot
   annot (TypeSig annot _ _) = annot
-  annot (FunClause annot _ _ _) = annot
+  annot (FunClause annot _ _ _ _) = annot
 
 instance Annotated Type where
   annot (TVar annot _) = annot
@@ -147,7 +148,7 @@ instance Annotated Exp where
   annot (Exp annot _) = annot
 
 instance Annotated ExpLine where
-  annot (ECut annot _ _) = annot
+  annot (ECut annot _ _ _) = annot
   annot (EFwd annot _ _) = annot
   annot (EClose annot _) = annot
   annot (EWait annot _) = annot
@@ -184,7 +185,7 @@ instance Named (Module annot) where
 instance Named (Declaration annot) where
   name (TypeDef _ con _) = name con
   name (TypeSig _ ident _) = name ident
-  name (FunClause _ _ ident _) = name ident
+  name (FunClause _ _ ident _ _) = name ident
 
 
 instance Named (Ident annot) where
@@ -215,8 +216,8 @@ instance Pretty (Declaration annot) where
   pPrint (TypeDef _ con t) =
     text "" $+$ text "type" <+> pPrint con <+> text "=" <+> pPrint t
   pPrint (TypeSig _ ident t) = text "" $+$ pPrint ident <+> colon <+> pPrint t
-  pPrint (FunClause _ c ident e) = pPrint c <+> leftArrow
-    <+> pPrint ident <+> text "=" <+> text "do"
+  pPrint (FunClause _ c ident args e) = pPrint c <+> leftArrow
+    <+> pPrint ident <+> hsep (map pPrint args) <+> text "=" <+> text "do"
     $$ nest indentation (pPrint e)
 
 -- TODO: better parens
@@ -236,7 +237,8 @@ instance Pretty (Exp annot) where
   pPrint (Exp _ es) = vcat (map pPrint es)
 
 instance Pretty (ExpLine annot) where
-  pPrint (ECut _ c ident) = pPrint c <+> leftArrow <+> pPrint ident
+  pPrint (ECut _ c ident args) = pPrint c <+> leftArrow <+> pPrint ident
+    <+> hsep (map pPrint args)
   pPrint (EFwd _ c d) = pPrint c <+> leftArrow <+> pPrint d
   pPrint (EClose _ c) = text "close" <+> pPrint c
   pPrint (EWait _ c) = text "wait" <+> pPrint c

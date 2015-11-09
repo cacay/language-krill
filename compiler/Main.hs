@@ -32,8 +32,8 @@ exitFailure = liftIO Exit.exitFailure
 exitSuccess :: CompilerT IO a
 exitSuccess = liftIO Exit.exitSuccess
 
-liftEitherIO :: Show e => Either e a -> CompilerT IO a
-liftEitherIO (Left e) = do liftIO $ print e; exitFailure
+liftEitherIO :: Either String a -> CompilerT IO a
+liftEitherIO (Left e) = do liftIO $ putStrLn e; exitFailure
 liftEitherIO (Right a) = return a
 
 liftCompiler :: Compiler a -> CompilerT IO a

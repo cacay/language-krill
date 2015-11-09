@@ -1,0 +1,26 @@
+-- test success
+{- Test arguments -}
+module Main where
+
+  helper : 1 -o (1 -o 1) -o 1
+  `c <- helper `d `e = do
+    wait `d
+    send `e (`c <- close `c)
+    wait `e
+    close `c
+
+  term : 1
+  `c <- term = close `c
+
+  take : 1 -o 1
+  `c <- take `d = do
+    wait `d
+    close `c
+
+  main : 1
+  `c <- main = do
+    `term <- term
+    `take <- take
+    `helper <- helper `term `take
+    wait `helper
+    close `c

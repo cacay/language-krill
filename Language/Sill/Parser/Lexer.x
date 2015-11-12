@@ -411,7 +411,7 @@ type AlexAction' result = AlexInput -> Int64 -> Alex result
 -- | Nicer interface for Alex actions
 action :: Action result -> AlexAction' result
 action act (_, _, input) len = do
-  span <- return makeSrcSpanLength `ap` getSrcLoc `ap` return (fromIntegral len)
+  span <- return makeSrcSpanLengthEnd `ap` getSrcLoc `ap` return (fromIntegral len)
   let str = BS.unpack $ BS.take len input
   act str span
 

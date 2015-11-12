@@ -15,7 +15,7 @@ module Language.Sill.Parser.Location
   , SrcSpan
   , makeSrcSpan
   , srcLocSpan
-  , makeSrcSpanLength
+  , makeSrcSpanLength, makeSrcSpanLengthEnd
   , mergeSrcSpan
   , spanFile, spanSLine, spanSCol, spanELine, spanECol
     -- * Types with location information
@@ -75,7 +75,13 @@ makeSrcSpan start end = SrcSpan
 -- | Construct a span using a start location and the number of characters
 -- in the span. The span will start and end on the same line.
 makeSrcSpanLength :: SrcLoc -> Int -> SrcSpan
-makeSrcSpanLength s l = makeSrcSpan s $ s { srcCol = l + srcCol s }
+makeSrcSpanLength s l = makeSrcSpan s s{ srcCol = l + srcCol s }
+
+-- | Construct a span using an end location and the number of characters
+-- in the span. The span will start and end on the same line. The given
+-- length /must/ be less than the current position on the line.
+makeSrcSpanLengthEnd :: SrcLoc -> Int -> SrcSpan
+makeSrcSpanLengthEnd e l = makeSrcSpan e{ srcCol = srcCol e - l } e
 
 -- | Create a 'SrcSpan' corresponding to a single point
 srcLocSpan :: SrcLoc -> SrcSpan

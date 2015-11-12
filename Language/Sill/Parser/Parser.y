@@ -10,11 +10,17 @@
 -----------------------------------------------------------------------------
 {
 module Language.Sill.Parser.Parser
-  ( fileParser
-  , moduleParser
-  , expParser
-  , tokenParser
+  ( -- * Parsers
+    Parser
   , runParser
+  , fileParser
+  , moduleParser
+  -- , expParser
+  , tokenParser
+    -- * Lexemes
+  , Token.Token
+  , Token.Lexeme
+  , Token.token
   ) where
 
 import Data.ByteString.Lazy.Char8 (ByteString)
@@ -41,50 +47,50 @@ import Language.Sill.Parser.Syntax
 
 %token
   -- Keywords
-  module       { Lexeme $$ Token.TModule }
-  data         { Lexeme $$ Token.TData }
-  type         { Lexeme $$ Token.TType }
-  infix        { Lexeme $$ Token.TInfix }
-  let          { Lexeme $$ Token.TLet }
-  in           { Lexeme $$ Token.TIn }
-  where        { Lexeme $$ Token.TWhere }
-  do           { Lexeme $$ Token.TDo }
-  case         { Lexeme $$ Token.TCase }
-  of           { Lexeme $$ Token.TOf }
+  module       { Lexeme _ Token.TModule }
+  data         { Lexeme _ Token.TData }
+  type         { Lexeme _ Token.TType }
+  infix        { Lexeme _ Token.TInfix }
+  let          { Lexeme _ Token.TLet }
+  in           { Lexeme _ Token.TIn }
+  where        { Lexeme _ Token.TWhere }
+  do           { Lexeme _ Token.TDo }
+  case         { Lexeme _ Token.TCase }
+  of           { Lexeme _ Token.TOf }
 
   -- Special symbols
-  '('          { Lexeme $$ Token.TOpenParen }
-  ')'          { Lexeme $$ Token.TCloseParen }
-  '{'          { Lexeme $$ Token.TOpenBrace }
-  '}'          { Lexeme $$ Token.TCloseBrace }
-  ';'          { Lexeme $$ Token.TSemi }
-  vopen        { Lexeme $$ Token.TOpenVirtualBrace }
-  vclosebrace  { Lexeme $$ Token.TCloseVirtualBrace } -- vclose is defined later
-  vsemi        { Lexeme $$ Token.TVirtualSemi }
-  '.'          { Lexeme $$ Token.TDot }
-  ','          { Lexeme $$ Token.TComma }
-  '_'          { Lexeme $$ Token.TWild }
+  '('          { Lexeme _ Token.TOpenParen }
+  ')'          { Lexeme _ Token.TCloseParen }
+  '{'          { Lexeme _ Token.TOpenBrace }
+  '}'          { Lexeme _ Token.TCloseBrace }
+  ';'          { Lexeme _ Token.TSemi }
+  vopen        { Lexeme _ Token.TOpenVirtualBrace }
+  vclosebrace  { Lexeme _ Token.TCloseVirtualBrace } -- vclose is defined later
+  vsemi        { Lexeme _ Token.TVirtualSemi }
+  '.'          { Lexeme _ Token.TDot }
+  ','          { Lexeme _ Token.TComma }
+  '_'          { Lexeme _ Token.TWild }
 
   -- Reserved symbols
-  '='          { Lexeme $$ Token.TEqual }
-  '|'          { Lexeme $$ Token.TBar }
-  ':'          { Lexeme $$ Token.TColon }
-  '->'         { Lexeme $$ Token.TRightArrow }
-  '<-'         { Lexeme $$ Token.TLeftArrow }
-  lam          { Lexeme $$ Token.TLam }
+  '='          { Lexeme _ Token.TEqual }
+  '|'          { Lexeme _ Token.TBar }
+  ':'          { Lexeme _ Token.TColon }
+  '->'         { Lexeme _ Token.TRightArrow }
+  '<-'         { Lexeme _ Token.TLeftArrow }
+  lam          { Lexeme _ Token.TLam }
 
-  one          { Lexeme $$ Token.TUnit }
-  '*'          { Lexeme $$ Token.TTensor }
-  '+'          { Lexeme $$ Token.TInternal }
-  '-o'         { Lexeme $$ Token.TLolli }
-  '&'          { Lexeme $$ Token.TExternal }
-  and          { Lexeme $$ Token.TIntersect }
-  or           { Lexeme $$ Token.TUnion }
+  one          { Lexeme _ Token.TUnit }
+  '*'          { Lexeme _ Token.TTensor }
+  '+'          { Lexeme _ Token.TInternal }
+  '-o'         { Lexeme _ Token.TLolli }
+  '&'          { Lexeme _ Token.TExternal }
+  and          { Lexeme _ Token.TIntersect }
+  or           { Lexeme _ Token.TUnion }
 
-  close        { Lexeme $$ Token.TClose }
-  wait         { Lexeme $$ Token.TWait }
-  send         { Lexeme $$ Token.TSend }
-  recv         { Lexeme $$ Token.TRecv }
+  close        { Lexeme _ Token.TClose }
+  wait         { Lexeme _ Token.TWait }
+  send         { Lexeme _ Token.TSend }
+  recv         { Lexeme _ Token.TRecv }
 
 
   -- Identifiers
@@ -146,18 +152,21 @@ Block(p) : vopen ListSep(p, semi) vclose    { makeLoc (mergeLocated $1 $3) $2 }
     brace. However when the parser sees the 'in' there will be a parse error.
     This is our cue to close the layout block.
 -}
-vclose :: { SrcSpan }
+vclose :: { Token.Lexeme }
 vclose : vclosebrace  { $1 }
-       | error        {% popLayout >> getSrcLoc >>= return . srcLocSpan }
+       | error        {% do popLayout;
+                            loc <- getSrcLoc;
+                            return $ Lexeme (srcLocSpan loc) (Token.TCloseVirtualBrace)
+                      }
 
 
 -- A closing brace ends a 'NoLayout' block
-closebrace :: { SrcSpan }
+closebrace :: { Token.Lexeme }
 closebrace : '}'      {% popLayout >> return $1 }
 
 -- You can use concrete semi colons in a layout block started with a virtual
 -- brace, so we don't have to distinguish between the two in this case
-semi :: { SrcSpan }
+semi :: { Token.Lexeme }
 semi : ';'    { $1 }
      | vsemi  { $1 }
 
@@ -166,61 +175,60 @@ semi : ';'    { $1 }
   Token Parser
 --------------------------------------------------------------------------}
 
---TODO: Implement
 
-Tokens :: { [Token.Token] }
+Tokens :: { [Token.Lexeme] }
 Tokens : List(Token) { $1 }
 
-Token :: { Token.Token }
-Token : module       { Token.TModule }
-      | data         { Token.TData }
-      | type         { Token.TType }
-      | infix        { Token.TInfix }
-      | let          { Token.TLet }
-      | in           { Token.TIn }
-      | where        { Token.TWhere }
-      | do           { Token.TDo }
-      | case         { Token.TCase }
-      | of           { Token.TOf }
+Token :: { Token.Lexeme }
+Token : module       { $1 }
+      | data         { $1 }
+      | type         { $1 }
+      | infix        { $1 }
+      | let          { $1 }
+      | in           { $1 }
+      | where        { $1 }
+      | do           { $1 }
+      | case         { $1 }
+      | of           { $1 }
 
       -- Special symbols
-      | '('          { Token.TOpenParen }
-      | ')'          { Token.TCloseParen }
-      | '{'          { Token.TOpenBrace }
-      | '}'          { Token.TCloseBrace }
-      | ';'          { Token.TSemi }
-      | vopen        { Token.TOpenVirtualBrace }
-      | vclosebrace  { Token.TCloseVirtualBrace } -- vclose is defined later
-      | vsemi        { Token.TVirtualSemi }
-      | '.'          { Token.TDot }
-      | ','          { Token.TComma }
-      | '_'          { Token.TWild }
+      | '('          { $1 }
+      | ')'          { $1 }
+      | '{'          { $1 }
+      | '}'          { $1 }
+      | ';'          { $1 }
+      | vopen        { $1 }
+      | vclosebrace  { $1 }
+      | vsemi        { $1 }
+      | '.'          { $1 }
+      | ','          { $1 }
+      | '_'          { $1 }
 
       -- Reserved symbols
-      | '='          { Token.TEqual }
-      | '|'          { Token.TBar }
-      | ':'          { Token.TColon }
-      | '->'         { Token.TRightArrow }
-      | '<-'         { Token.TLeftArrow }
-      | lam          { Token.TLam }
+      | '='          { $1 }
+      | '|'          { $1 }
+      | ':'          { $1 }
+      | '->'         { $1 }
+      | '<-'         { $1 }
+      | lam          { $1 }
 
-      | one          { Token.TUnit }
-      | '*'          { Token.TTensor }
-      | '+'          { Token.TInternal }
-      | '-o'         { Token.TLolli }
-      | '&'          { Token.TExternal }
-      | and          { Token.TIntersect }
-      | or           { Token.TUnion }
+      | one          { $1 }
+      | '*'          { $1 }
+      | '+'          { $1 }
+      | '-o'         { $1 }
+      | '&'          { $1 }
+      | and          { $1 }
+      | or           { $1 }
 
-      | close        { Token.TClose }
-      | wait         { Token.TWait }
-      | send         { Token.TSend }
-      | recv         { Token.TRecv }
+      | close        { $1 }
+      | wait         { $1 }
+      | send         { $1 }
+      | recv         { $1 }
 
       -- Identifiers
-      | ident        { token $1 }
-      | constructor  { token $1 }
-      | channel      { token $1 }
+      | ident        { $1 }
+      | constructor  { $1 }
+      | channel      { $1 }
 
 
 {--------------------------------------------------------------------------
@@ -251,7 +259,7 @@ Channel : channel  { Channel (location $1) $ (\(Token.TChannel id) -> id) (token
 
 Type :: { Type SrcSpan }
 Type : Constructor                        { TVar (location $1) $1 }
-     | one                                { TUnit $1 }
+     | one                                { TUnit (location $1) }
      | Type '*' Type                      { TProduct (mergeLocated $1 $3) $1 $3 }
      | '+' '{' ListSep(Field, ',') '}'    { TInternal (mergeLocated $1 $4) $3 }
      | Type '-o' Type                     { TArrow (mergeLocated $1 $3) $1 $3 }
@@ -334,25 +342,34 @@ Module : module Qualified where Declarations { Module (mergeLocated $1 $4) $2 (u
 {
 
 {--------------------------------------------------------------------------
-  Helpers
+  Interface
 --------------------------------------------------------------------------}
+
+-- | A monadic parser
+type Parser t = Alex t
+
+-- | Run a 'Parser' on the given 'ByteString'
+runParser :: ByteString -> Parser t -> Either String t
+runParser = runAlex
+
+-- | Parser for a SILL file, which is basically a list of modules
+fileParser :: FilePath -> Alex (File SrcSpan)
+fileParser path = setSrcFile path >> fileParser1
+
+-- | Parser for a SILL module
+moduleParser :: Alex (Module SrcSpan)
+
+-- | Parse tokens only and return a list of lexemes. Mainly used for debugging.
+-- Note that some layout blocks (i.e. {...}) won't have closing braces since
+-- some of these need to be closed by parse errors and need more contexual
+-- information. We do not have this since we are treating the input as a stream
+-- of tokens.
+tokenParser :: Alex [Token.Lexeme]
 
 
 {--------------------------------------------------------------------------
   Happy related
 --------------------------------------------------------------------------}
-
-type Parser t = Alex t
-
-fileParser :: FilePath -> Alex (File SrcSpan)
-fileParser path = setSrcFile path >> fileParser1
-
-moduleParser :: Alex (Module SrcSpan)
-tokenParser :: Alex [Token.Token]
-
-runParser :: ByteString -> Parser t -> Either String t
-runParser = runAlex
-
 
 parseError :: Lexeme -> Alex a
 parseError l = lexError $ "parse error on " ++ show (token l)

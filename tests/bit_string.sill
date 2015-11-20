@@ -38,6 +38,10 @@ module BitString where
         `sd <- succ `d
         `c <- `sd
 
+  -- add : Std -o Std -o Std
+  --`c <- add `a `b =
+
+
   {-
   -- Try forgetting
   succ1 : Bits -o Bits

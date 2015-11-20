@@ -157,7 +157,7 @@ checkBase ctx p@(Ast.ECut _ c ident p') targets = do
 checkBase ctx p@(Ast.ECloseProv _) targets = do
   unless (Context.null channels ctx) $
     typeError (text "Unused channels in the context.") ctx p targets
-  when (null [() | t@Types.TUnit {} <- targets]) $
+  when (null [() | Types.TUnit {} <- targets]) $
     typeError (text "Cannot close a channel that does not have type 1.")
       ctx p targets
   return ()

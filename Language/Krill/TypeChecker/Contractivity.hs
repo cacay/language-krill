@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      : Language.Sill.TypeChecker.Contractivity
+-- Module      : Language.Krill.TypeChecker.Contractivity
 -- Description : Check that recursive types are contractive
 -- Maintainer  : coskuacay@gmail.com
 -- Stability   : experimental
@@ -12,7 +12,7 @@
 -- Since we use equirecursive types, we require all types to be contractive
 -- for soundness.
 -----------------------------------------------------------------------------
-module Language.Sill.TypeChecker.Contractivity
+module Language.Krill.TypeChecker.Contractivity
   ( contractiveFile
   , contractiveModule
   ) where
@@ -27,10 +27,10 @@ import qualified Data.Map.Strict as Map
 import Text.PrettyPrint
 import Text.PrettyPrint.HughesPJClass (Pretty (..), prettyShow)
 
-import Language.Sill.Parser.Location (Located (..), SrcSpan)
+import Language.Krill.Parser.Location (Located (..), SrcSpan)
 
-import Language.Sill.Monad.Compiler
-import Language.Sill.AST
+import Language.Krill.Monad.Compiler
+import Language.Krill.AST
 
 
 type TypeDefs = Map.Map (Constructor SrcSpan) (TypeDef SrcSpan)

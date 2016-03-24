@@ -1,14 +1,14 @@
 {-# Language FlexibleInstances #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      : Language.Sill.Parser.Annotated
+-- Module      : Language.Krill.Parser.Annotated
 -- Description : Types that contain an annotation
 -- Maintainer  : coskuacay@gmail.com
 -- Stability   : experimental
 -----------------------------------------------------------------------------
-module Language.Sill.Parser.Annotated (Annotated (..)) where
+module Language.Krill.Parser.Annotated (Annotated (..)) where
 
-import Language.Sill.Parser.Location (Located (..), SrcSpan)
+import Language.Krill.Parser.Location (Located (..), SrcSpan)
 
 
 -- | Convenient access to annotations in annotated types.

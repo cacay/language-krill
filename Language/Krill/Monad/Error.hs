@@ -1,11 +1,11 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      : Language.Sill.Monad.Error
+-- Module      : Language.Krill.Monad.Error
 -- Description : Definition of errors reported during compilation
 -- Maintainer  : coskuacay@gmail.com
 -- Stability   : experimental
 -----------------------------------------------------------------------------
-module Language.Sill.Monad.Error
+module Language.Krill.Monad.Error
   ( CompilerError
   , makeCompilerError
   , attachErrorContext
@@ -15,9 +15,9 @@ import qualified Data.DList as DList
 
 import Text.PrettyPrint
 import Text.PrettyPrint.HughesPJClass (Pretty (..), prettyShow)
-import Language.Sill.Utility.Pretty
+import Language.Krill.Utility.Pretty
 
-import Language.Sill.Parser.Location (SrcSpan)
+import Language.Krill.Parser.Location (SrcSpan)
 
 
 data CompilerError = CompilerError (DList.DList ErrorWithContext)

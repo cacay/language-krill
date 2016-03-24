@@ -1,6 +1,6 @@
-# SILL
+# Krill
 
-SILL is a concurrent functional programming language based on linear sequent calculus.
+Krill is a concurrent functional programming language based on linear sequent calculus.
 
 
 ## Prerequisites
@@ -23,6 +23,6 @@ Run `cabal install` or `make`.
 ## Usage
 
 ```
-sill --help
+krill --help
 ```
 

@@ -1,10 +1,10 @@
 {-|
-Module      : Language.Sill.Utility.List
+Module      : Language.Krill.Utility.List
 Description : Efficient implementations of some useful functions on lists
 Maintainer  : Josh Acay <cacay@cmu.edu>
 Stability   : experimental
 -}
-module Language.Sill.Utility.List
+module Language.Krill.Utility.List
   ( allEqual
   , group2
   , collect

@@ -1,15 +1,15 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      : Language.Sill.Parser.Parser
--- Description : Parser for the SILL language
+-- Module      : Language.Krill.Parser.Parser
+-- Description : Parser for the Krill language
 -- Maintainer  : coskuacay@gmail.com
 -- Stability   : experimental
 --
--- This module provides a parser for the SILL language that is intended to be
+-- This module provides a parser for the Krill language that is intended to be
 -- used with an Alex generated parser.
 -----------------------------------------------------------------------------
 {
-module Language.Sill.Parser.Parser
+module Language.Krill.Parser.Parser
   ( -- * Parsers
     Parser
   , runParser
@@ -25,13 +25,13 @@ module Language.Sill.Parser.Parser
 
 import Data.ByteString.Lazy.Char8 (ByteString)
 
-import Language.Sill.Parser.Location ( SrcSpan, srcLocSpan, Located (..)
+import Language.Krill.Parser.Location ( SrcSpan, srcLocSpan, Located (..)
                                      , mergeLocated, Loc, makeLoc, unLoc
                                      )
-import Language.Sill.Parser.Lexer
-import qualified Language.Sill.Parser.Token as Token
-import Language.Sill.Parser.Token (Lexeme (..), token)
-import Language.Sill.Parser.Syntax
+import Language.Krill.Parser.Lexer
+import qualified Language.Krill.Parser.Token as Token
+import Language.Krill.Parser.Token (Lexeme (..), token)
+import Language.Krill.Parser.Syntax
 }
 
 %name fileParser1 File
@@ -352,11 +352,11 @@ type Parser t = Alex t
 runParser :: ByteString -> Parser t -> Either String t
 runParser = runAlex
 
--- | Parser for a SILL file, which is basically a list of modules
+-- | Parser for a Krill file, which is basically a list of modules
 fileParser :: FilePath -> Alex (File SrcSpan)
 fileParser path = setSrcFile path >> fileParser1
 
--- | Parser for a SILL module
+-- | Parser for a Krill module
 moduleParser :: Alex (Module SrcSpan)
 
 -- | Parse tokens only and return a list of lexemes. Mainly used for debugging.

@@ -1,11 +1,11 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      : Language.Sill.Parser.Lexer
--- Description : Lexer for the SILL language
+-- Module      : Language.Krill.Parser.Lexer
+-- Description : Lexer for the Krill language
 -- Maintainer  : coskuacay@gmail.com
 -- Stability   : experimental
 --
--- This module provides a lexer for the SILL language that is intended to be
+-- This module provides a lexer for the Krill language that is intended to be
 -- used alongside a Happy generated parser. The lexer cannot handle layout
 -- without input from a parser since some virtual braces need to be closed by
 -- parse errors. It handles nested comments, indentation dependent layout,
@@ -18,7 +18,7 @@
 {
 {-# OPTIONS_GHC -fno-warn-tabs #-}
 
-module Language.Sill.Parser.Lexer
+module Language.Krill.Parser.Lexer
   ( -- * The main lexing function
       lexer
       -- * Lex states
@@ -43,9 +43,9 @@ import Lens.Micro.Mtl
 import Text.PrettyPrint
 import Text.PrettyPrint.HughesPJClass (Pretty (..))
 
-import Language.Sill.Parser.AlexUserState
-import Language.Sill.Parser.Location hiding (srcFile)
-import Language.Sill.Parser.Token (Token (..), Lexeme (..))
+import Language.Krill.Parser.AlexUserState
+import Language.Krill.Parser.Location hiding (srcFile)
+import Language.Krill.Parser.Token (Token (..), Lexeme (..))
 }
 
 %wrapper "monadUserState-bytestring"

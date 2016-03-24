@@ -1,11 +1,11 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      : Language.Sill.Parser.Location
+-- Module      : Language.Krill.Parser.Location
 -- Description : Source location and span information
 -- Maintainer  : coskuacay@gmail.com
 -- Stability   : experimental
 -----------------------------------------------------------------------------
-module Language.Sill.Parser.Location
+module Language.Krill.Parser.Location
   (
     -- * Source location
     SrcLoc

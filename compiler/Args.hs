@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      : Language.Sill.AST
+-- Module      : Language.Krill.AST
 -- Description : Argument and option parsing
 -- Maintainer  : coskuacay@gmail.com
 -- Stability   : experimental

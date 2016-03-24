@@ -1,18 +1,18 @@
 {-# Language FlexibleInstances #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      : Language.Sill.Desugaring.Syntax
--- Description : Desugared syntax of SILL
+-- Module      : Language.Krill.Parser.Syntax
+-- Description : Abstract, un-elaborated syntax of Krill
 -- Maintainer  : coskuacay@gmail.com
 -- Stability   : experimental
 -----------------------------------------------------------------------------
-module Language.Sill.Desugaring.Syntax
+module Language.Krill.Parser.Syntax
   ( File (..)
   , Module (..)
-  , TypeDef (..)
-  , Function (..)
+  , Declaration (..)
   , Type (..)
   , Exp (..)
+  , ExpLine (..)
   , Ident (..)
   , Constructor (..)
   , Channel (..)
@@ -28,21 +28,21 @@ import Data.Function (on)
 
 import Text.PrettyPrint
 import Text.PrettyPrint.HughesPJClass (Pretty (..), prettyShow)
+import Language.Krill.Utility.Pretty
 
-import Language.Sill.Parser.Annotated (Annotated (..))
-import Language.Sill.Parser.Named (Named (..))
-
-import Language.Sill.Utility.Pretty
+import Language.Krill.Parser.Annotated (Annotated (..))
+import Language.Krill.Parser.Named (Named (..))
 
 
 data File annot = File annot [Module annot]
 
-data Module annot = Module annot (Ident annot) [TypeDef annot] [Function annot]
+data Module annot = Module annot (Ident annot) [Declaration annot]
 
-data TypeDef annot = TypeDef annot (Constructor annot) (Type annot)
 
-data Function annot = Function annot (Ident annot) (Type annot) (Exp annot)
-
+data Declaration annot
+  = TypeDef annot (Constructor annot) (Type annot)
+  | TypeSig annot (Ident annot) (Type annot)
+  | FunClause annot (Channel annot) (Ident annot) [Channel annot] (Exp annot)
 
 data Type annot = TVar annot (Constructor annot)
                 | TUnit annot
@@ -53,18 +53,17 @@ data Type annot = TVar annot (Constructor annot)
                 | TIntersect annot (Type annot) (Type annot)
                 | TUnion annot (Type annot) (Type annot)
 
-data Exp annot = EFwdProv annot (Channel annot)
-               | ECloseProv annot
-               | ESendProv annot (Exp annot) (Exp annot)
-               | ERecvProv annot (Channel annot) (Exp annot)
-               | ESelectProv annot (Label annot) (Exp annot)
-               | ECaseProv annot [Branch Exp annot]
-               | ECut annot (Channel annot) (Ident annot) (Exp annot)
-               | EWait annot (Channel annot) (Exp annot)
-               | ESend annot (Channel annot) (Exp annot) (Exp annot)
-               | ERecv annot (Channel annot) (Channel annot) (Exp annot)
-               | ESelect annot (Channel annot) (Label annot) (Exp annot)
-               | ECase annot (Channel annot) [Branch Exp annot]
+data Exp annot = Exp annot [ExpLine annot]
+
+data ExpLine annot = ECut annot (Channel annot) (Ident annot) [Channel annot]
+                   | EFwd annot (Channel annot) (Channel annot)
+                   | EClose annot (Channel annot)
+                   | EWait annot (Channel annot)
+                   | ESend annot (Channel annot) (Channel annot, Exp annot)
+                   | ESendChannel annot (Channel annot) (Channel annot)
+                   | ERecv annot (Channel annot) (Channel annot)
+                   | ESelect annot (Channel annot) (Label annot)
+                   | ECase annot (Channel annot) [Branch Exp annot]
 
 
 data Ident annot = Ident annot String
@@ -128,14 +127,12 @@ instance Annotated File where
   annot (File annot _) = annot
 
 instance Annotated Module where
-  annot (Module annot _ _ _) = annot
+  annot (Module annot _ _) = annot
 
-instance Annotated TypeDef where
+instance Annotated Declaration where
   annot (TypeDef annot _ _) = annot
-
-instance Annotated Function where
-  annot (Function annot _ _ _) = annot
-
+  annot (TypeSig annot _ _) = annot
+  annot (FunClause annot _ _ _ _) = annot
 
 instance Annotated Type where
   annot (TVar annot _) = annot
@@ -148,17 +145,17 @@ instance Annotated Type where
   annot (TUnion annot _ _) = annot
 
 instance Annotated Exp where
-  annot (EFwdProv annot _) = annot
-  annot (ECloseProv annot) = annot
-  annot (ESendProv annot _ _) = annot
-  annot (ERecvProv annot _ _) = annot
-  annot (ESelectProv annot _ _) = annot
-  annot (ECaseProv annot _) = annot
+  annot (Exp annot _) = annot
+
+instance Annotated ExpLine where
   annot (ECut annot _ _ _) = annot
-  annot (EWait annot _ _) = annot
-  annot (ESend annot _ _ _) = annot
-  annot (ERecv annot _ _ _) = annot
-  annot (ESelect annot _ _ _) = annot
+  annot (EFwd annot _ _) = annot
+  annot (EClose annot _) = annot
+  annot (EWait annot _) = annot
+  annot (ESend annot _ _) = annot
+  annot (ESendChannel annot _ _) = annot
+  annot (ERecv annot _ _) = annot
+  annot (ESelect annot _ _) = annot
   annot (ECase annot _ _) = annot
 
 
@@ -183,13 +180,12 @@ instance Annotated (Branch t) where
 --------------------------------------------------------------------------}
 
 instance Named (Module annot) where
-  name (Module _ ident _ _) = name ident
+  name (Module _ ident _) = name ident
 
-instance Named (TypeDef annot) where
+instance Named (Declaration annot) where
   name (TypeDef _ con _) = name con
-
-instance Named (Function annot) where
-  name (Function _ ident _ _) = name ident
+  name (TypeSig _ ident _) = name ident
+  name (FunClause _ _ ident _ _) = name ident
 
 
 instance Named (Ident annot) where
@@ -209,27 +205,20 @@ instance Named (Label annot) where
   Printing
 --------------------------------------------------------------------------}
 
-wildcard :: Doc
-wildcard = text "_"
-
-
 instance Pretty (File annot) where
   pPrint (File _ ms) = vcat (punctuate nl $ map pPrint ms)
 
 instance Pretty (Module annot) where
-  pPrint (Module _ name typedefs funcs) =
-    text "module" <+> pPrint name <+> text "where"
-    $$ nest indentation (vcat $ map pPrint typedefs)
-    $$ nl $$ nest indentation (vcat $ punctuate nl $ map pPrint funcs)
+  pPrint (Module _ name decls) = text "module" <+> pPrint name <+> text "where"
+    $$ nest indentation (vcat $ map pPrint decls)
 
-instance Pretty (TypeDef annot) where
+instance Pretty (Declaration annot) where
   pPrint (TypeDef _ con t) =
-    text "type" <+> pPrint con <+> text "=" <+> pPrint t
-
-instance Pretty (Function annot) where
-  pPrint (Function _ ident t e) = pPrint ident <+> colon <+> pPrint t
-    $$ pPrint ident <+> text "=" <+> pPrint e
-
+    text "" $+$ text "type" <+> pPrint con <+> text "=" <+> pPrint t
+  pPrint (TypeSig _ ident t) = text "" $+$ pPrint ident <+> colon <+> pPrint t
+  pPrint (FunClause _ c ident args e) = pPrint c <+> leftArrow
+    <+> pPrint ident <+> hsep (map pPrint args) <+> text "=" <+> text "do"
+    $$ nest indentation (pPrint e)
 
 -- TODO: better parens
 instance Pretty (Type annot) where
@@ -245,25 +234,19 @@ instance Pretty (Type annot) where
   pPrint (TUnion _ a b) = parens (pPrint a <+> text "or" <+> pPrint b)
 
 instance Pretty (Exp annot) where
-  pPrint (EFwdProv _ d) = wildcard <+> leftArrow <+> pPrint d
-  pPrint (ECloseProv _) = text "close" <+> wildcard
-  pPrint (ESendProv _ e1 e2) = text "send" <+> wildcard <+> parens (
-    wildcard <+> leftArrow <+> pPrint e1) <> semi $$ pPrint e2
-  pPrint (ERecvProv _ d e) = pPrint d <+> leftArrow <+> text "recv" <+> wildcard
-    <> semi $$ pPrint e
-  pPrint (ESelectProv _ lab e) = wildcard <> char '.' <> pPrint lab
-    <> semi $$ pPrint e
-  pPrint (ECaseProv _ br) = text "case" <+> wildcard <+> text "of"
-    $$ nest indentation (vcat $ map pPrint br)
-  pPrint (ECut _ c ident e) = pPrint c <+> leftArrow <+> pPrint ident
-    <> semi $$ pPrint e
-  pPrint (EWait _ c e) = text "wait" <+> pPrint c <> semi $$ pPrint e
-  pPrint (ESend _ c e1 e2) = text "send" <+> pPrint c <+> parens (
-    wildcard <+> leftArrow <+> pPrint e1) <> semi $$ pPrint e2
-  pPrint (ERecv _ c d e) = pPrint c <+> leftArrow <+> text "recv" <+> pPrint d
-    <> semi $$ pPrint e
-  pPrint (ESelect _ c lab e) = pPrint c <> char '.' <> pPrint lab
-    <> semi $$ pPrint e
+  pPrint (Exp _ es) = vcat (map pPrint es)
+
+instance Pretty (ExpLine annot) where
+  pPrint (ECut _ c ident args) = pPrint c <+> leftArrow <+> pPrint ident
+    <+> hsep (map pPrint args)
+  pPrint (EFwd _ c d) = pPrint c <+> leftArrow <+> pPrint d
+  pPrint (EClose _ c) = text "close" <+> pPrint c
+  pPrint (EWait _ c) = text "wait" <+> pPrint c
+  pPrint (ESend _ c (d, e)) =
+    text "send" <+> pPrint c <+> parens (pPrint d <+> leftArrow <+> pPrint e)
+  pPrint (ESendChannel _ c d) = text "send" <+> pPrint c <+> pPrint d
+  pPrint (ERecv _ c d) = pPrint c <+> leftArrow <+> text "recv" <+> pPrint d
+  pPrint (ESelect _ c lab) = pPrint c <> char '.' <> pPrint lab
   pPrint (ECase _ c br) = text "case" <+> pPrint c <+> text "of"
     $$ nest indentation (vcat $ map pPrint br)
 
@@ -297,10 +280,7 @@ instance Show (File annot) where
 instance Show (Module annot) where
   show = prettyShow
 
-instance Show (TypeDef annot) where
-  show = prettyShow
-
-instance Show (Function annot) where
+instance Show (Declaration annot) where
   show = prettyShow
 
 instance Show (Type annot) where

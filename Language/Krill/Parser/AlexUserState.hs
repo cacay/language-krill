@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module Language.Sill.Parser.AlexUserState
+module Language.Krill.Parser.AlexUserState
   ( -- * User state
     AlexUserState
   , alexInitUserState

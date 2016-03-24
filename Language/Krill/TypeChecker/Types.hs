@@ -1,7 +1,7 @@
 {-# Language FlexibleInstances #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      : Language.Sill.TypeChecker.Types
+-- Module      : Language.Krill.TypeChecker.Types
 -- Description : Type representation used internally by the type-checker
 -- Maintainer  : coskuacay@gmail.com
 -- Stability   : experimental
@@ -9,7 +9,7 @@
 -- During type checking, we split types into two syntactic groups:
 -- structural types and property types. This is formalized here.
 -----------------------------------------------------------------------------
-module Language.Sill.TypeChecker.Types
+module Language.Krill.TypeChecker.Types
   ( Base (..)
   , Property (..)
   , into
@@ -19,8 +19,8 @@ module Language.Sill.TypeChecker.Types
 import Text.PrettyPrint
 import Text.PrettyPrint.HughesPJClass (Pretty (..), prettyShow)
 
-import qualified Language.Sill.AST as Ast
-import Language.Sill.Parser.Annotated (Annotated (..))
+import qualified Language.Krill.AST as Ast
+import Language.Krill.Parser.Annotated (Annotated (..))
 
 
 data Base annot = TUnit annot

@@ -1,8 +1,8 @@
-name:                language-sill
+name:                language-krill
 version:             0.1.0.0
 category:            Language
-synopsis:            SILL programming language
-homepage:            https://github.com/cacay/language-sill
+synopsis:            Krill programming language
+homepage:            https://github.com/cacay/language-krill
 
 license:             MIT
 license-file:        LICENSE
@@ -19,27 +19,27 @@ library
 
   default-language:      Haskell2010
 
-  exposed-modules:       Language.Sill.AST
-                         Language.Sill.Desugaring.Syntax
-                         Language.Sill.Desugaring.Desugar
-                         Language.Sill.Monad.Compiler
-                         Language.Sill.Parser.Parser
-                         Language.Sill.Parser.Annotated
-                         Language.Sill.Parser.Location
-                         Language.Sill.Parser.Syntax
-                         Language.Sill.Parser.Token
-                         Language.Sill.TypeChecker.TypeChecker
+  exposed-modules:       Language.Krill.AST
+                         Language.Krill.Desugaring.Syntax
+                         Language.Krill.Desugaring.Desugar
+                         Language.Krill.Monad.Compiler
+                         Language.Krill.Parser.Parser
+                         Language.Krill.Parser.Annotated
+                         Language.Krill.Parser.Location
+                         Language.Krill.Parser.Syntax
+                         Language.Krill.Parser.Token
+                         Language.Krill.TypeChecker.TypeChecker
 
-  other-modules:         Language.Sill.Monad.Error
-                         Language.Sill.Parser.Lexer
-                         Language.Sill.Parser.AlexUserState
-                         Language.Sill.TypeChecker.Context
-                         Language.Sill.TypeChecker.Contractivity
-                         Language.Sill.TypeChecker.FreeVariables
-                         Language.Sill.TypeChecker.Subtyping
-                         Language.Sill.TypeChecker.Types
-                         Language.Sill.Utility.List
-                         Language.Sill.Utility.Pretty
+  other-modules:         Language.Krill.Monad.Error
+                         Language.Krill.Parser.Lexer
+                         Language.Krill.Parser.AlexUserState
+                         Language.Krill.TypeChecker.Context
+                         Language.Krill.TypeChecker.Contractivity
+                         Language.Krill.TypeChecker.FreeVariables
+                         Language.Krill.TypeChecker.Subtyping
+                         Language.Krill.TypeChecker.Types
+                         Language.Krill.Utility.List
+                         Language.Krill.Utility.Pretty
 
   build-tools:           alex, happy
 
@@ -66,7 +66,7 @@ library
                          -- -fwarn-unused-imports
 
 
-executable sill
+executable krill
 
   default-language:     Haskell2010
 
@@ -80,7 +80,5 @@ executable sill
                         bytestring == 0.10.6.*,
                         optparse-applicative == 0.12.0.*,
                         pretty == 1.1.3.*,
-                        language-sill
-
-
+                        language-krill
 

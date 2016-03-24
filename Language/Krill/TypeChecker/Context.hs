@@ -1,12 +1,12 @@
 {-# LANGUAGE RankNTypes, TemplateHaskell #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      : Language.Sill.TypeChecker.Context
+-- Module      : Language.Krill.TypeChecker.Context
 -- Description : Definition of and operations on the type-checking context
 -- Maintainer  : coskuacay@gmail.com
 -- Stability   : experimental
 -----------------------------------------------------------------------------
-module Language.Sill.TypeChecker.Context
+module Language.Krill.TypeChecker.Context
   ( Context
   , empty
     -- * Sub-contexts
@@ -35,10 +35,10 @@ import Lens.Micro.TH (makeLenses)
 import Text.PrettyPrint hiding (empty)
 import Text.PrettyPrint.HughesPJClass (Pretty (..), prettyShow)
 
-import Language.Sill.Parser.Location (Located (..), mergeLocated, SrcSpan)
+import Language.Krill.Parser.Location (Located (..), mergeLocated, SrcSpan)
 
-import qualified Language.Sill.AST as Ast
-import qualified Language.Sill.TypeChecker.Types as Types
+import qualified Language.Krill.AST as Ast
+import qualified Language.Krill.TypeChecker.Types as Types
 
 
 ----------------------------------------------------------------------------

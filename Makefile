@@ -1,4 +1,4 @@
-binary = sill
+binary = krill
 
 all:
 	cabal configure

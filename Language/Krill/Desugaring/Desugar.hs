@@ -1,8 +1,8 @@
 {-# Language FlexibleInstances #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      : Language.Sill.Desugaring.Desugar
--- Description : Convert SILL syntax to simpler intermediate form
+-- Module      : Language.Krill.Desugaring.Desugar
+-- Description : Convert Krill syntax to simpler intermediate form
 -- Maintainer  : coskuacay@gmail.com
 -- Stability   : experimental
 --
@@ -18,7 +18,7 @@
 --   * Case statements do not have duplicate branches
 --   * Internal (+{...}) and external (&{...}) choices do not have duplicate labels
 -----------------------------------------------------------------------------
-module Language.Sill.Desugaring.Desugar
+module Language.Krill.Desugaring.Desugar
   ( desugarFile
   , desugarModule
   ) where
@@ -35,14 +35,14 @@ import Data.List (groupBy, sortOn)
 import Text.PrettyPrint
 import Text.PrettyPrint.HughesPJClass (Pretty (..))
 
-import Language.Sill.Monad.Compiler
-import qualified Language.Sill.Desugaring.Syntax as Dst
-import qualified Language.Sill.Parser.Syntax as Src
-import Language.Sill.Parser.Annotated (Annotated (..))
-import Language.Sill.Parser.Named (Named (..))
-import Language.Sill.Parser.Location
+import Language.Krill.Monad.Compiler
+import qualified Language.Krill.Desugaring.Syntax as Dst
+import qualified Language.Krill.Parser.Syntax as Src
+import Language.Krill.Parser.Annotated (Annotated (..))
+import Language.Krill.Parser.Named (Named (..))
+import Language.Krill.Parser.Location
 
-import Language.Sill.Utility.Pretty
+import Language.Krill.Utility.Pretty
 
 
 type Context = Map.Map String (Loc (Dst.Type SrcSpan))

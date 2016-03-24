@@ -1,11 +1,11 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      : Language.Sill.AST
--- Description : Elaborated syntax of SILL
+-- Module      : Language.Krill.AST
+-- Description : Elaborated syntax of Krill
 -- Maintainer  : coskuacay@gmail.com
 -- Stability   : experimental
 -----------------------------------------------------------------------------
-module Language.Sill.AST
+module Language.Krill.AST
   ( File (..)
   , Module (..)
   , TypeDef (..)
@@ -23,5 +23,5 @@ module Language.Sill.AST
   , branchLookup
   ) where
 
-import Language.Sill.Desugaring.Syntax
+import Language.Krill.Desugaring.Syntax
 

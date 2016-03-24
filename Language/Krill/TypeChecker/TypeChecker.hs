@@ -1,12 +1,12 @@
 {-# Language TupleSections #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      : Language.Sill.TypeChecker.TypeChecker
--- Description : Type-checker for the SILL language
+-- Module      : Language.Krill.TypeChecker.TypeChecker
+-- Description : Type-checker for the Krill language
 -- Maintainer  : coskuacay@gmail.com
 -- Stability   : experimental
 -----------------------------------------------------------------------------
-module Language.Sill.TypeChecker.TypeChecker
+module Language.Krill.TypeChecker.TypeChecker
   ( checkFile
   , checkModule
   )
@@ -22,19 +22,19 @@ import qualified Data.Map.Strict as Map
 import Text.PrettyPrint
 import Text.PrettyPrint.HughesPJClass (Pretty (..), prettyShow)
 
-import Language.Sill.Monad.Compiler
-import Language.Sill.Parser.Location (Located (..), mergeLocated, SrcSpan)
+import Language.Krill.Monad.Compiler
+import Language.Krill.Parser.Location (Located (..), mergeLocated, SrcSpan)
 
-import qualified Language.Sill.AST as Ast
+import qualified Language.Krill.AST as Ast
 
-import Language.Sill.TypeChecker.Context (Context, typedefs, functions, channels)
-import qualified Language.Sill.TypeChecker.Context as Context
-import Language.Sill.TypeChecker.Contractivity (contractiveModule)
-import Language.Sill.TypeChecker.FreeVariables (freeChannels)
-import Language.Sill.TypeChecker.Subtyping (subBase, TypeDefs)
-import qualified Language.Sill.TypeChecker.Types as Types
+import Language.Krill.TypeChecker.Context (Context, typedefs, functions, channels)
+import qualified Language.Krill.TypeChecker.Context as Context
+import Language.Krill.TypeChecker.Contractivity (contractiveModule)
+import Language.Krill.TypeChecker.FreeVariables (freeChannels)
+import Language.Krill.TypeChecker.Subtyping (subBase, TypeDefs)
+import qualified Language.Krill.TypeChecker.Types as Types
 
-import Language.Sill.Utility.Pretty (indentation, period)
+import Language.Krill.Utility.Pretty (indentation, period)
 
 
 ----------------------------------------------------------------------------

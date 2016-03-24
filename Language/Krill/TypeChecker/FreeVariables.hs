@@ -1,18 +1,18 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      : Language.Sill.TypeChecker.FreeVariables
+-- Module      : Language.Krill.TypeChecker.FreeVariables
 -- Description : Algorithm to decide the sub-typing relation
 -- Maintainer  : coskuacay@gmail.com
 -- Stability   : experimental
 -----------------------------------------------------------------------------
-module Language.Sill.TypeChecker.FreeVariables
+module Language.Krill.TypeChecker.FreeVariables
   ( freeChannels
   , freeChannelsSet
   ) where
 
 import qualified Data.Set as Set
 
-import Language.Sill.AST (Exp (..), Channel, Branch, branchUnpack)
+import Language.Krill.AST (Exp (..), Channel, Branch, branchUnpack)
 
 
 freeChannels :: Exp annot -> [Channel annot]

@@ -13,17 +13,17 @@ import qualified Args as Args
 import Text.PrettyPrint (vcat, render)
 import Text.PrettyPrint.HughesPJClass (Pretty (..))
 
-import Language.Sill.Parser.Location (SrcSpan)
-import Language.Sill.Monad.Compiler
+import Language.Krill.Parser.Location (SrcSpan)
+import Language.Krill.Monad.Compiler
 
-import qualified Language.Sill.Parser.Parser as Parser
-import qualified Language.Sill.Parser.Syntax as Parsed
+import qualified Language.Krill.Parser.Parser as Parser
+import qualified Language.Krill.Parser.Syntax as Parsed
 
-import Language.Sill.Desugaring.Desugar (desugarFile)
-import qualified Language.Sill.Desugaring.Syntax as Desugared
+import Language.Krill.Desugaring.Desugar (desugarFile)
+import qualified Language.Krill.Desugaring.Syntax as Desugared
 
-import qualified Language.Sill.AST as Elaborated
-import Language.Sill.TypeChecker.TypeChecker (checkFile)
+import qualified Language.Krill.AST as Elaborated
+import Language.Krill.TypeChecker.TypeChecker (checkFile)
 
 
 exitFailure :: CompilerT IO a
@@ -87,6 +87,6 @@ main = do
     opts = Options.info (Options.helper <*> Args.jobParser)
       ( Options.fullDesc
       Options.<> Options.progDesc "Parse and type check FILE"
-      Options.<> Options.header "The SILL compiler"
+      Options.<> Options.header "The Krill compiler"
       )
 

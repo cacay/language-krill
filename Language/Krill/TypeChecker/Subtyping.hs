@@ -1,13 +1,13 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      : Language.Sill.TypeChecker.Subtyping
+-- Module      : Language.Krill.TypeChecker.Subtyping
 -- Description : Algorithm to decide the sub-typing relation
 -- Maintainer  : coskuacay@gmail.com
 -- Stability   : experimental
 --
 -- TODO: Some discussion of contractive types and co-induction.
 -----------------------------------------------------------------------------
-module Language.Sill.TypeChecker.Subtyping
+module Language.Krill.TypeChecker.Subtyping
   ( TypeDefs
   , subBase
   , subProperty
@@ -23,11 +23,11 @@ import qualified Data.Set as Set
 import Text.PrettyPrint
 import Text.PrettyPrint.HughesPJClass (Pretty (..), prettyShow)
 
-import Language.Sill.Parser.Location (Located (..), SrcSpan)
+import Language.Krill.Parser.Location (Located (..), SrcSpan)
 
-import qualified Language.Sill.AST as Ast
-import Language.Sill.Monad.Compiler
-import Language.Sill.TypeChecker.Types
+import qualified Language.Krill.AST as Ast
+import Language.Krill.Monad.Compiler
+import Language.Krill.TypeChecker.Types
 
 
 -- | Type definitions in scope

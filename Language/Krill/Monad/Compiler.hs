@@ -1,12 +1,12 @@
 {-# Language UndecidableInstances, FlexibleInstances, GeneralizedNewtypeDeriving #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      : Language.Sill.Monad.Compiler
+-- Module      : Language.Krill.Monad.Compiler
 -- Description : Compiler monad that supports error tracking
 -- Maintainer  : coskuacay@gmail.com
 -- Stability   : experimental
 -----------------------------------------------------------------------------
-module Language.Sill.Monad.Compiler
+module Language.Krill.Monad.Compiler
   ( -- * Compiler monad
     Compiler
   , runCompiler
@@ -37,8 +37,8 @@ import Data.Either (partitionEithers)
 
 import Text.PrettyPrint (Doc)
 
-import Language.Sill.Monad.Error
-import Language.Sill.Parser.Location (SrcSpan)
+import Language.Krill.Monad.Error
+import Language.Krill.Parser.Location (SrcSpan)
 
 
 ----------------------------------------------------------------------------

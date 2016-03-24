@@ -1,11 +1,11 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      : Language.Sill.Utility.Pretty
+-- Module      : Language.Krill.Utility.Pretty
 -- Description : Helper functions for pretty printing
 -- Maintainer  : coskuacay@gmail.com
 -- Stability   : experimental
 -----------------------------------------------------------------------------
-module Language.Sill.Utility.Pretty where
+module Language.Krill.Utility.Pretty where
 
 import Text.PrettyPrint
 

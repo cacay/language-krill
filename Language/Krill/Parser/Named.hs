@@ -1,11 +1,11 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      : Language.Sill.Parser.Named
+-- Module      : Language.Krill.Parser.Named
 -- Description : Types that have a name attached to them
 -- Maintainer  : coskuacay@gmail.com
 -- Stability   : experimental
 -----------------------------------------------------------------------------
-module Language.Sill.Parser.Named (Named (..)) where
+module Language.Krill.Parser.Named (Named (..)) where
 
 
 -- | Convenient access to names in named types.

@@ -8,12 +8,12 @@
 --
 -- Desugaring does the following transformations:
 --   * Combines possibly multi-line do expressions into a single expression
---   * Combines related function clauses and its type signature into one
+--   * Combines related function clauses and their type signature into one
 --
 -- Desugaring also checks that:
 --   * Each identifier has exactly one type signature
 --   * Each identifier has exactly one definition (we only have one clause functions)
---   * Each type signature has corresponding function clause
+--   * Each type signature has a corresponding function clause
 --   * Each function has a type signature
 --   * Case statements do not have duplicate branches
 --   * Internal (+{...}) and external (&{...}) choices do not have duplicate labels
@@ -62,6 +62,11 @@ desugarModule :: Src.Module SrcSpan -> Compiler (Dst.Module SrcSpan)
 desugarModule (Src.Module annot name decls) = do
   (typedefs, functions) <- desugarDeclarations decls
   return $ Dst.Module annot (desugarIdent name) typedefs functions
+
+
+-- | The dummy channel needed during translation
+dummyChannel :: annot -> Src.Channel annot
+dummyChannel annot = Src.Channel annot "$dummy"
 
 
 {--------------------------------------------------------------------------
@@ -254,6 +259,11 @@ desugarExp c (Src.Exp annot es) = do
         branch (Src.Branch annot lab p) = do
           p' <- desugarExp c p
           return $ Dst.Branch annot (desugarLabel lab) p'
+    desugarLast (Src.ECut annot c' ident args) | c == c' =
+      desugarLine (Src.ECut annot dummy ident args) rest
+      where
+        dummy = dummyChannel (location c')
+        rest = Dst.EFwdProv annot (desugarChannel dummy)
     desugarLast p = compilerError (location p) $
       text "The following cannot be the last expression of a process:"
       $$ pPrint p

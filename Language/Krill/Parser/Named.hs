@@ -10,6 +10,6 @@ module Language.Krill.Parser.Named (Named (..)) where
 
 -- | Convenient access to names in named types.
 class Named t where
-   -- | Get the name of a named type
-   name :: t -> String
+  -- | Get the name of a named type
+  name :: t -> String
 

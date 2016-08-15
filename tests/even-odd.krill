@@ -1,0 +1,38 @@
+
+module Nat where
+
+  type Nat = +{zero : 1, succ : Nat}
+
+  type Even = +{zero : 1, succ : Odd}
+  type Odd = +{succ : Even}
+
+
+  zero : Nat and Even
+  `c <- zero = do `c.zero; close `c
+
+  succ : (Nat -o Nat) and (Even -o Odd) and (Odd -o Even)
+  `c <- succ `d = do `c.succ; `c <- `d
+
+
+  double : Nat -o Even
+  `c <- double `d = do
+    case `d of
+      zero -> do wait `d; `c.zero; close `c
+      succ -> do
+        `c.succ
+        `c.succ
+        `e <- double `d
+        `c <- `e
+
+
+  injective : Nat -o (Even or Odd)
+  `c <- injective `d = do
+    case `d of
+      zero -> do wait `d; `c.zero; close `c
+      succ -> do
+        `c.succ
+        `e <- injective `d
+        `c <- `e
+
+  surjective : (Even or Odd) -o Nat
+  `c <- surjective `d = `c <- `d

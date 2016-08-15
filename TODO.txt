@@ -1,0 +1,32 @@
+
+# Bugs
+
+  1) (May not be a problem) The lexer will not handle files that are not 0 indented properly. The problem is, if there is a comment that start at column 0, but the first real declaration starts at say column 2, the lexer will use column 0 as default. Lexer does not know to ignore comments (I think).
+
+  2) Lexer reports wrong locations
+
+  3) Token parser should return Lexemes instead of tokens
+
+
+# TODO
+
+  1) grep for "TODO"
+
+  2) Consider adding warnings to the Compiler monad (using a writer monad perhaps)
+
+  7) Lexer and Happy should use CompilerError
+
+  8) Language.Sill.TypeChecker.Subtyping has a lot of duplication in code. Error
+  messages are also duplicated.
+
+  9) Location of error messages need to be greatly improved
+
+
+# Type checker
+
+  1) When we expect only one branch to be true, we should have a message that says
+     one of these needs to hold (rather than just listing them)
+
+  2) The subtyping algorithm is wacky. Read the TODO.
+
+  3) Case for decomposeTarget intersection is broken

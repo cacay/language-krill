@@ -215,13 +215,6 @@ tokens :-
 
 type StartCode = Int
 
-instance Functor Alex where
-  fmap = liftM
-
-instance Applicative Alex where
-  pure = return
-  (<*>) = ap
-
 instance MonadState AlexState Alex where
   get   = Alex $ \s -> Right (s, s)
   put s = Alex $ \_ -> Right (s, ())
@@ -269,7 +262,7 @@ getSrcLoc = do
 lexError :: String -> Alex a
 lexError msg = do
   pos <- getSrcLoc
-  (_, c, input) <- alexGetInput
+  (_, c, input, _) <- alexGetInput
   alexError $ render $ vcat
       [ pPrint pos <> colon <+> text msg
       , text $ c : "<ERROR>"
@@ -410,7 +403,7 @@ type AlexAction' result = AlexInput -> Int64 -> Alex result
 
 -- | Nicer interface for Alex actions
 action :: Action result -> AlexAction' result
-action act (_, _, input) len = do
+action act (_, _, input, _) len = do
   span <- return makeSrcSpanLengthEnd `ap` getSrcLoc `ap` return (fromIntegral len)
   let str = BS.unpack $ BS.take len input
   act str span
@@ -446,7 +439,7 @@ not' p = \x y z u -> not (p x y z u)
 
 -- | True if we are at the end of the file
 atEof :: AlexPredicate
-atEof _ _ _ (_, _, rest) = BS.null rest
+atEof _ _ _ (_, _, rest, _) = BS.null rest
 
 
 -- -----------------------------------------------------------------------------

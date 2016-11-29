@@ -1,0 +1,12 @@
+flags: {}
+
+packages:
+- '.'
+
+resolver: lts-7.9
+
+extra-deps:
+- bibtex-0.1.0.6
+- download-curl-0.1.4
+- latex-0.1.0.3
+

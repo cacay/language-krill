@@ -44,16 +44,16 @@ library
   build-tools:           alex, happy
 
   build-depends:         base >= 4.6,
-                         microlens >= 0.3.4,
-                         microlens-mtl >= 0.1.5,
-                         microlens-th >= 0.2.1,
-                         transformers >= 0.2,
-                         containers >= 0.5,
-                         dlist == 0.7.1.*,
-                         array >= 0.4,
-                         bytestring == 0.10.6.*,
-                         mtl >= 2.2.1 && < 2.3,
-                         pretty == 1.1.3.*
+                         microlens,
+                         microlens-mtl,
+                         microlens-th,
+                         transformers,
+                         containers,
+                         dlist,
+                         array,
+                         bytestring,
+                         mtl,
+                         pretty
 
   default-extensions:    PatternGuards,
                          ScopedTypeVariables,
@@ -75,10 +75,10 @@ executable krill
   main-is:              Main.hs
 
   build-depends:        base >= 4.6,
-                        transformers >= 0.2,
-                        mtl >= 2.2.1 && < 2.3,
-                        bytestring == 0.10.6.*,
-                        optparse-applicative == 0.12.0.*,
-                        pretty == 1.1.3.*,
+                        transformers,
+                        mtl,
+                        bytestring,
+                        optparse-applicative,
+                        pretty,
                         language-krill
 

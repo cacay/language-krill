@@ -1,5 +1,11 @@
+# IDE
+.idea
+
 # Binary
 bin
+
+# Stack
+.stack-work
 
 # Haskell
 dist
